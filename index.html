@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}About - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">About</h2>
+
+  <div class="history-block">
+    <img src="{{ root }}static/cover-s1.jpg" alt="The Long Play Video shop, Season 1">
+    <div class="text">
+      <h3 style="margin-top:0;">Season 1: The Video Shop Era</h3>
+      <p>It started behind the counter of a nostalgic, Blockbuster-style video rental shop, working through Andy's top 100 favourite films of all time.</p>
+    </div>
+  </div>
+
+  <div class="history-block">
+    <img src="{{ root }}static/cover.jpg" alt="Cocktails and Shattered Dreams, Season 2">
+    <div class="text">
+      <h3 style="margin-top:0;">Season 2: Cocktails and Shattered Dreams</h3>
+      <p>Now it's a tiki bar on a hidden beach island, tropical drinks in hand, working through Kev's top 100 favourite films of all time.</p>
+    </div>
+  </div>
+
+  <h3>Andy's Bio</h3>
+  <div class="empty-state">Add Andy's bio here by editing <code>templates/about.html</code>.</div>
+
+  <h3 style="margin-top:32px;">Kev's Bio</h3>
+  <div class="empty-state">Add Kev's bio here by editing <code>templates/about.html</code>.</div>
+</main>
+{% endblock %}

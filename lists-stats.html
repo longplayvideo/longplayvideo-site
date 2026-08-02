@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{{ config.site_title }}{% endblock %}</title>
+<meta name="description" content="{{ config.description }}">
+<link rel="stylesheet" href="{{ root }}static/style.css">
+<link rel="icon" href="{{ root }}static/cover.jpg">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="{{ root }}index.html">
+    <img src="{{ root }}static/cover.jpg" alt="{{ config.site_title }} cover art">
+    {{ config.site_title }}
+  </a>
+  <nav class="site-nav">
+    <a href="{{ root }}index.html">Home</a>
+    <a href="{{ root }}episodes.html">Episodes</a>
+    <a href="{{ root }}lists-stats.html">Lists &amp; Stats</a>
+    <a href="{{ root }}about.html">About</a>
+    <a href="{{ root }}contact.html">Contact</a>
+  </nav>
+</header>
+
+{% block content %}{% endblock %}
+
+<footer class="site-footer">
+  <div>&copy; {{ year }} {{ config.site_title }}. This site rebuilds itself automatically from the show's RSS feed.</div>
+  <div class="social-links">
+    <a href="{{ config.spotify_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-spotify.png" alt=""> Spotify</a>
+    <a href="{{ config.instagram_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-instagram.png" alt=""> Instagram</a>
+  </div>
+</footer>
+</body>
+</html>
