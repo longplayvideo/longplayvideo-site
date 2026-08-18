@@ -105,15 +105,19 @@
   function normalizeTitle(text) {
     return (text || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   }
-  function pickRandom(list, label) {
+  function pickRandom(list, fallbackLabel) {
     if (!list.length || !resultEl) return;
     var pick = list[Math.floor(Math.random() * list.length)];
-    var slug = slugLookup[normalizeTitle(pick)];
-    if (slug) {
-      resultEl.innerHTML = "🎲 " + label + ": <a href=\"#ep-" + slug + "\">" + pick + "</a>";
+    var match = slugLookup[normalizeTitle(pick)];
+    if (match) {
+      // Label with the film's *actual* season, not just whichever button
+      // was clicked - the same title can appear on both hosts' lists, so
+      // a "Season 2" pick can correctly resolve to a Season 1 episode.
+      var label = match.season ? ("Season " + match.season + " pick") : fallbackLabel;
+      resultEl.innerHTML = "🎲 " + label + ": <a href=\"#ep-" + match.slug + "\">" + pick + "</a>";
       resultEl.querySelector("a").addEventListener("click", function (e) {
         e.preventDefault();
-        var card = document.getElementById("ep-" + slug);
+        var card = document.getElementById("ep-" + match.slug);
         if (card) {
           card.scrollIntoView({ behavior: "smooth", block: "center" });
           card.classList.add("highlight-pulse");
@@ -121,7 +125,7 @@
         }
       });
     } else {
-      resultEl.textContent = "🎲 " + label + ": " + pick + " (not released yet)";
+      resultEl.textContent = "🎲 " + fallbackLabel + ": " + pick + " (not released yet)";
     }
   }
   var andyBtn = document.getElementById("surprise-andy");
