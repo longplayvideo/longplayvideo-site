@@ -29,7 +29,7 @@ OUT = os.path.join(ROOT, "_site")
 # been typed consistently - without this, an odd-one-out title silently loses
 # its season/rank/cover art/tags instead of erroring loudly, so it's worth
 # being forgiving here rather than relying on perfectly consistent typing.
-TITLE_RE = re.compile(r"S0?(\d+)\s*Ep?\d+\s*-\s*#(\d+)\s*(.+)")
+TITLE_RE = re.compile(r"S0?(\d+)\s*Ep?\d+\s*-\s*#\s*(\d+)\s*(.+)")
 
 # Fallback for episodes that don't cover a single ranked film - catch-up/recap
 # formats like "S01 E96 - Roll of the Dice #2" or "S02 E00 - Intro to Season 2"
