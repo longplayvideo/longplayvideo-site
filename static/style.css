@@ -300,13 +300,11 @@ h3.decade-title {
   padding: 0;
   border-radius: 50%;
   overflow: hidden;
-  background: var(--cream);
-  border: 2px solid rgba(253,246,236,0.5);
   box-shadow: 0 2px 8px rgba(0,0,0,0.45);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease;
   flex-shrink: 0;
 }
-.episode-card .card-links .ep-listen-icons a:hover { transform: translateY(-2px) scale(1.06); border-color: var(--gold); }
+.episode-card .card-links .ep-listen-icons a:hover { transform: translateY(-2px) scale(1.06); }
 .episode-card .card-links .ep-listen-icons img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .episode-card .card-links a.imdb-link { background: transparent; color: var(--gold-light); border: 1px solid var(--gold); }
 .episode-card .card-links a.imdb-link:hover { background: var(--gold); color: var(--red-dark); text-decoration: none; }
@@ -454,8 +452,48 @@ h3.decade-title {
 }
 .toggle-btn:hover { background: rgba(232,180,82,0.15); }
 .toggle-btn.active { background: var(--gold); color: var(--red-dark); }
-.toggle-panel { display: none; }
-.toggle-panel.active { display: block; }
+.toggle-panel {
+  display: none;
+  border-radius: 20px;
+  padding: 28px 24px;
+  margin: 0 -24px;
+  transition: background 0.4s ease;
+}
+.toggle-panel.active {
+  display: block;
+  animation: panel-fade-in 0.3s ease;
+}
+@keyframes panel-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Each tab gets its own colour wash so it reads as a distinct "place" -
+   Top Trumps (red), Stats (teal), Drinks Menu (gold), Snacks Menu (coral) -
+   matching the accent colours already used for those concepts elsewhere on
+   the site (episode card borders, drink/snack tags). */
+#panel-toptrumps.active { background: radial-gradient(circle at 15% -10%, rgba(122,31,31,0.55), transparent 60%), var(--purple-dark); }
+#panel-stats.active { background: radial-gradient(circle at 15% -10%, rgba(63,182,176,0.4), transparent 60%), var(--purple-dark); }
+
+/* Drinks Menu: a faint gold diner/disco-floor checkerboard tile under the
+   colour wash - retro without being a literal photo background. */
+#panel-drinks.active {
+  background:
+    radial-gradient(circle at 15% -10%, rgba(232,180,82,0.4), transparent 60%),
+    repeating-conic-gradient(rgba(232,180,82,0.07) 0% 25%, transparent 0% 50%) 0 0/44px 44px,
+    var(--purple-dark);
+}
+/* Snacks Menu: a scatter of coral dots - popcorn-kernel/movie-carpet texture. */
+#panel-snacks.active {
+  background:
+    radial-gradient(circle at 15% -10%, rgba(255,111,92,0.4), transparent 60%),
+    radial-gradient(rgba(255,111,92,0.16) 2px, transparent 2.5px) 0 0/24px 24px,
+    var(--purple-dark);
+}
+
+@media (max-width: 520px) {
+  .toggle-panel { margin: 0 -16px; padding: 20px 16px; }
+}
 
 .toptrumps-grid {
   display: grid;
@@ -483,6 +521,39 @@ h3.decade-title {
   border: 2px solid rgba(232,180,82,0.3);
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
+
+/* Interactive Chart.js charts on the Stats panel - same card treatment as
+   the static .stats-chart images they replace, so the two can sit side by
+   side without looking mismatched while the film stats sheet is filled in
+   film-by-film. */
+.chart-card {
+  max-width: 640px;
+  margin: 0 auto 28px;
+  padding: 20px 20px 12px;
+  background: var(--purple);
+  border-radius: 14px;
+  border: 2px solid rgba(232,180,82,0.3);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+.chart-card h4 {
+  margin: 0 0 14px;
+  color: var(--gold-light);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+/* Search/filter controls shared by the Top Trumps, Drinks and Snacks
+   panels - reuses .episode-search's look (see Episodes page controls)
+   so every searchable list on the site feels consistent. */
+.panel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+select.episode-search { max-width: 220px; cursor: pointer; }
 
 .progress-block { margin-bottom: 32px; }
 .progress-label { display: flex; justify-content: space-between; font-weight: 700; color: var(--gold-light); margin-bottom: 8px; font-size: 0.9rem; }
@@ -514,6 +585,19 @@ h3.decade-title {
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
 .showcase-card img { display: block; width: 100%; height: auto; }
+
+/* Start Here page - full episode-cards (cover + title + summary + links)
+   need a lot more room than .showcase-grid's square-image columns
+   (minmax(220px,1fr)) give them, which was squeezing the summary text into
+   an unreadably narrow strip. This gives each card enough width to lay out
+   properly, falling back to a single column on narrow screens. */
+.start-here-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+.start-here-grid .episode-card { margin-bottom: 0; }
 .coming-soon-badge {
   display: inline-block;
   background: var(--coral);
