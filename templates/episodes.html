@@ -4,6 +4,23 @@
 <main>
   <h2 class="section-title">All Episodes</h2>
 
+  {% if season_progress %}
+  <div class="progress-block">
+    {% for p in season_progress %}
+    <div class="progress-label"><span>Season {{ p.number }}</span><span>{{ p.count }} of {{ p.target }} episodes released</span></div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:{{ p.pct }}%;"></div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="surprise-block">
+    {% if kev_list or andy_list %}
+    <button type="button" class="btn btn-small btn-ghost" id="surprise-andy">Surprise me - Season 1</button>
+    <button type="button" class="btn btn-small btn-ghost" id="surprise-kev">Surprise me - Season 2</button>
+    <div class="surprise-result" id="surprise-result"></div>
+    {% endif %}
+  </div>
+
   {% if episodes %}
   <div class="episode-controls">
     <div class="season-filter-group">
@@ -81,6 +98,19 @@
 
 <script>
 (function () {
+  var kevList = {{ kev_list|tojson }};
+  var andyList = {{ andy_list|tojson }};
+  var resultEl = document.getElementById("surprise-result");
+  function pickRandom(list, label) {
+    if (!list.length || !resultEl) return;
+    var pick = list[Math.floor(Math.random() * list.length)];
+    resultEl.textContent = "🎲 " + label + ": " + pick;
+  }
+  var andyBtn = document.getElementById("surprise-andy");
+  var kevBtn = document.getElementById("surprise-kev");
+  if (andyBtn) andyBtn.addEventListener("click", function () { pickRandom(andyList, "Season 1 pick"); });
+  if (kevBtn) kevBtn.addEventListener("click", function () { pickRandom(kevList, "Season 2 pick"); });
+
   var filterBtns = document.querySelectorAll(".season-filter-btn");
   var seasonBlocks = document.querySelectorAll(".season-block");
   var searchInput = document.getElementById("episode-search");
