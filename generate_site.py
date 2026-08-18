@@ -5,6 +5,7 @@ show's Spotify RSS feed. Run manually with `python generate_site.py`, or let
 the GitHub Actions workflow (.github/workflows/deploy.yml) run it on a
 schedule so the site keeps itself up to date with no manual work.
 """
+import calendar
 import html
 import json
 import os
@@ -174,8 +175,9 @@ def fetch_cover(film_title, api_key, cache):
     return result
 
 
-def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
+def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
     drinks_snacks = drinks_snacks or {}
+    film_stats = film_stats or {}
     if not rss_url or "PASTE_" in rss_url:
         print("No RSS feed URL set in config.json yet - building site with an empty episode list.")
         return []
@@ -189,8 +191,15 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
     episodes = []
     for entry in feed.entries:
         date_str = ""
+        published_ts = None
         if getattr(entry, "published_parsed", None):
             date_str = datetime(*entry.published_parsed[:6]).strftime("%d %b %Y")
+            # Real publish-date timestamp, used to order episodes by actual
+            # hosting/release date (see _hosting_order_key) - more reliable
+            # than the itunes:episode number, since episodes aren't always
+            # released in the exact order they were numbered/recorded in
+            # (schedules shift, episodes get swapped, etc).
+            published_ts = calendar.timegm(entry.published_parsed)
 
         duration = getattr(entry, "itunes_duration", "")
 
@@ -238,6 +247,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
         )
 
         drink_snack = drinks_snacks.get(normalize_title(film_title), {})
+        stats = film_stats.get(normalize_title(film_title), {})
 
         episodes.append({
             "title": title,
@@ -251,6 +261,13 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
             "film_title": film_title,
             "poster": cover.get("poster"),
             "imdb_link": imdb_link,
+            "published_ts": published_ts,
+            "genre": stats.get("genre"),
+            "rt_audience": stats.get("rt_audience"),
+            "rt_critics": stats.get("rt_critics"),
+            "imdb_rating": stats.get("imdb_rating"),
+            "guest": stats.get("guest"),
+            "year": stats.get("year"),
             "kev_drink_name": drink_snack.get("kev_drink_name"),
             "kev_drink_emoji": drink_snack.get("kev_drink_emoji"),
             "kev_glass_name": drink_snack.get("kev_glass_name"),
@@ -300,6 +317,41 @@ def attach_toptrumps_links(episodes, toptrumps_cards):
     return episodes
 
 
+def infer_missing_seasons(episodes):
+    """
+    Bonus episodes (e.g. "Bonus Episode - Kev's bottom 25") sometimes have
+    no itunes:season tag AND no "S01"/"S02"/"Season N Finale" text in the
+    title for parse_episode_title() to pick up - there's nothing anywhere
+    in the feed saying which season they belong to. Left as season=None,
+    an episode like that gets shunted into its own unlabeled "season 0"
+    bucket at the very bottom of the Episodes page, instead of sitting in
+    its actual chronological spot alongside the season it was really
+    released during - which is exactly the "bonus episodes in the wrong
+    place" problem.
+
+    Since every bonus episode observed so far was published squarely in
+    the middle of one season's run (surrounded on both sides by dated
+    episodes from that same season), the nearest neighbour by publish date
+    is a reliable stand-in for "which season was airing at the time" - so
+    a missing season is filled in from whichever dated episode is closest
+    in time. Episodes that already have a season (from the tag or the
+    title) are left untouched.
+    """
+    dated = sorted(
+        (ep for ep in episodes if ep.get("published_ts") is not None and ep.get("season") is not None),
+        key=lambda ep: ep["published_ts"],
+    )
+    if not dated:
+        return episodes
+
+    for ep in episodes:
+        if ep.get("season") is not None or ep.get("published_ts") is None:
+            continue
+        closest = min(dated, key=lambda d: abs(d["published_ts"] - ep["published_ts"]))
+        ep["season"] = closest["season"]
+    return episodes
+
+
 def group_by_season(episodes):
     seasons = {}
     for ep in episodes:
@@ -312,12 +364,16 @@ def group_by_season(episodes):
 def _hosting_order_key(ep):
     """
     Sort key that reflects the order episodes were actually hosted/released
-    in, using Spotify's structured episode number (see fetch_episodes) -
-    lower episode_num = released earlier. Falls back to rank if
-    episode_num is somehow missing, since the show counts down in
-    descending rank order (starts around #91-100, ends at the #1-10
-    finale) - a higher rank number was released earlier.
+    in. The real RSS publish timestamp (see fetch_episodes) is the ground
+    truth here - episodes aren't always released in the exact order they
+    were numbered/recorded in (recording schedules shift, episodes get
+    swapped around), so relying on Spotify's itunes:episode number alone
+    can put episodes in the wrong order even though each one individually
+    has a "correct" number. Falls back to episode_num, then rank, only for
+    the rare case a feed entry is missing a publish date entirely.
     """
+    if ep.get("published_ts") is not None:
+        return ep["published_ts"]
     if ep.get("episode_num") is not None:
         return ep["episode_num"]
     return -(ep.get("rank") or 0)
@@ -326,39 +382,41 @@ def _hosting_order_key(ep):
 def group_by_decade(episodes):
     """
     Sub-groups a season's episodes into blocks of 10 by rank (#1-10,
-    #11-20, ... #91-100) purely for a readable heading. The blocks
-    themselves, and the episodes within each, are ordered newest-first by
-    actual hosting/release date (same convention as Spotify) rather than
-    by the rank value - the show counts down in descending rank order, so
-    ordering by rank value alone would put the season opener at the top of
-    the page instead of the newest episode. Episodes without a parsed rank
-    (catch-up/recap episodes, e.g. "Roll of the Dice") get their own
-    "Other Episodes" bucket, but it's slotted into its real chronological
-    position among the ranked blocks rather than always being pinned to
-    the end.
+    #11-20, ... #91-100) purely for a readable heading, in true newest-
+    first hosting/release order (same convention as Spotify) - the show
+    counts down in descending rank order, so ordering by rank value alone
+    would put the season opener at the top of the page instead of the
+    newest episode.
+
+    Walks the whole season in real chronological order and only starts a
+    new visual block when the decade label actually changes, rather than
+    bucketing every same-decade episode together first and placing each
+    bucket as one atomic unit. That distinction matters for episodes
+    without a parsed rank (catch-up/recaps, and bonus episodes with no
+    season/rank info at all) - with the old bucket-first approach, one of
+    these could land in the same "Other Episodes" bucket as an unrelated
+    episode from weeks apart and get pinned to the wrong end of it, even
+    though its actual release date sat right between two ranked episodes.
+    Walking date-order first means it always slots into its true position,
+    even if that means the same "Ranks #71-80" heading appears twice with
+    something else between them - which is a more honest reflection of
+    what actually aired than silently misplacing an episode.
     """
-    buckets = {}
-    other = []
-    for ep in episodes:
-        rank = ep.get("rank")
-        if not rank:
-            other.append(ep)
-            continue
-        low = ((rank - 1) // 10) * 10 + 1
-        high = low + 9
-        buckets.setdefault((low, high), []).append(ep)
+    ordered = sorted(episodes, key=_hosting_order_key, reverse=True)
 
     groups = []
-    for (low, high), eps in buckets.items():
-        eps = sorted(eps, key=_hosting_order_key, reverse=True)
-        groups.append({"label": f"Ranks #{low}-{high}", "episodes": eps, "_key": _hosting_order_key(eps[0])})
-    if other:
-        other = sorted(other, key=_hosting_order_key, reverse=True)
-        groups.append({"label": "Other Episodes", "episodes": other, "_key": _hosting_order_key(other[0])})
+    for ep in ordered:
+        rank = ep.get("rank")
+        if rank:
+            low = ((rank - 1) // 10) * 10 + 1
+            label = f"Ranks #{low}-{low + 9}"
+        else:
+            label = "Other Episodes"
 
-    groups.sort(key=lambda g: g["_key"], reverse=True)
-    for g in groups:
-        del g["_key"]
+        if not groups or groups[-1]["label"] != label:
+            groups.append({"label": label, "episodes": []})
+        groups[-1]["episodes"].append(ep)
+
     return groups
 
 
@@ -366,7 +424,16 @@ SEASON_TARGETS = {1: 99, 2: 101}  # Andy's and Kev's full list lengths
 
 
 def season_progress(seasons):
-    """[{'number':1,'count':N,'target':99,'pct':...}, ...] for the progress meter."""
+    """
+    [{'number':1,'count':N,'target':99,'pct':...}, ...] for the progress meter.
+    'count' is every published episode in the season, including recap/
+    catch-up episodes like "Roll of the Dice" that don't map to a single
+    ranked film. It's labelled "episodes released" (not "films watched") on
+    the page specifically so it's fine for count to occasionally read
+    higher than the ranked-film target - that's honestly true (more
+    episodes than films exist because of the recaps), rather than a
+    films-vs-films mismatch that would look like a bug.
+    """
     progress = []
     for group in seasons:
         num = group["number"]
@@ -506,6 +573,109 @@ def load_drinks_snacks(sheet_url):
         return {}
 
 
+def _to_float(val):
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int(val):
+    f = _to_float(val)
+    return int(f) if f is not None else None
+
+
+def load_film_stats(sheet_url):
+    """
+    Reads a published-to-web Google Sheet CSV with per-film data (genre,
+    Rotten Tomatoes audience/critic scores, IMDb rating, guest, release
+    year) used to power the Stats page's interactive charts, the Top Trumps
+    genre filter, and the Episodes page's genre/guest/year filters.
+    Expected columns: Film, Genre, RT Audience Score, RT Critics Score,
+    IMDb Rating, Guest, Release Year. RT scores can be entered either as a
+    0-1 fraction (0.94) or a 0-100 percentage (94) - both are normalised to
+    a 0-100 number here. Guest is optional - leave it blank for solo
+    episodes, it just won't get a guest filter option.
+    Returns {} until a real film_stats_sheet_url is set in config.json - the
+    site works fine either way, it just falls back to the old static chart
+    images and unfiltered grids until this is wired up.
+    """
+    if not sheet_url or "PASTE_" in sheet_url or not requests:
+        return {}
+    try:
+        resp = requests.get(sheet_url, timeout=8)
+        resp.raise_for_status()
+        import csv
+        import io
+        reader = csv.DictReader(io.StringIO(resp.text))
+        out = {}
+        for row in reader:
+            film = (row.get("Film") or "").strip()
+            if not film:
+                continue
+            genre = (row.get("Genre") or "").strip() or None
+            rt_audience = _to_float(row.get("RT Audience Score"))
+            rt_critics = _to_float(row.get("RT Critics Score"))
+            imdb_rating = _to_float(row.get("IMDb Rating"))
+            # Tolerate scores entered either as 0-1 (0.94) or 0-100 (94).
+            if rt_audience is not None and rt_audience <= 1:
+                rt_audience *= 100
+            if rt_critics is not None and rt_critics <= 1:
+                rt_critics *= 100
+            guest = (row.get("Guest") or "").strip() or None
+            year = _to_int(row.get("Release Year"))
+            out[normalize_title(film)] = {
+                "genre": genre,
+                "rt_audience": rt_audience,
+                "rt_critics": rt_critics,
+                "imdb_rating": imdb_rating,
+                "guest": guest,
+                "year": year,
+            }
+        return out
+    except Exception as e:
+        print(f"  Film stats sheet fetch failed: {e}")
+        return {}
+
+
+def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats):
+    """Stamps genre/rating data onto each Top Trumps card (matched by title,
+    same loose normalize_title match used everywhere else) so the grid can
+    be filtered/sorted client-side without any extra config."""
+    for card in toptrumps_cards:
+        stats = film_stats.get(normalize_title(card["title"]), {})
+        card["genre"] = stats.get("genre")
+        card["rt_audience"] = stats.get("rt_audience")
+        card["imdb_rating"] = stats.get("imdb_rating")
+    return toptrumps_cards
+
+
+def compute_genre_breakdown(episodes):
+    """Counts how many published episodes fall into each genre, for the
+    Stats page's genre chart. Only counts episodes that matched a genre via
+    the film stats sheet - returns [] (chart hidden) until that's wired up."""
+    counts = {}
+    for ep in episodes:
+        genre = ep.get("genre")
+        if genre:
+            counts[genre] = counts.get(genre, 0) + 1
+    return [{"genre": g, "count": c} for g, c in sorted(counts.items(), key=lambda x: -x[1])]
+
+
+def compute_critics_vs_audience(episodes):
+    """[{film, critics, audience}, ...] for the critics-vs-audience scatter
+    chart - only episodes with both scores available."""
+    points = []
+    for ep in episodes:
+        if ep.get("rt_critics") is not None and ep.get("rt_audience") is not None:
+            points.append({
+                "film": ep["film_title"],
+                "critics": ep["rt_critics"],
+                "audience": ep["rt_audience"],
+            })
+    return points
+
+
 # Brand names that .title() would otherwise mangle (e.g. "outout" -> "Outout").
 TITLE_FIXUPS = {"Outout": "OutOut"}
 
@@ -591,8 +761,12 @@ def load_start_here_picks(episodes):
 def build():
     config = load_config()
     drinks_snacks = load_drinks_snacks(config.get("drinks_sheet_url", ""))
-    episodes = fetch_episodes(config.get("rss_url", ""), config.get("omdb_api_key", ""), drinks_snacks)
+    film_stats = load_film_stats(config.get("film_stats_sheet_url", ""))
+    episodes = fetch_episodes(config.get("rss_url", ""), config.get("omdb_api_key", ""), drinks_snacks, film_stats)
+    episodes = infer_missing_seasons(episodes)
     toptrumps_cards = load_toptrumps_cards()
+    toptrumps_cards = attach_film_stats_to_toptrumps(toptrumps_cards, film_stats)
+    toptrumps_genres = sorted({c["genre"] for c in toptrumps_cards if c.get("genre")})
     episodes = attach_toptrumps_links(episodes, toptrumps_cards)
     seasons = group_by_season(episodes)
     for group in seasons:
@@ -603,6 +777,11 @@ def build():
     episodes_with_drinks = [ep for ep in episodes if ep.get("kev_drink_name") or ep.get("andy_drink_name") or ep.get("snack_name")]
     episodes_with_snacks = [ep for ep in episodes if ep.get("snack_name")]
     start_here_picks = load_start_here_picks(episodes)
+    genre_breakdown = compute_genre_breakdown(episodes)
+    critics_vs_audience = compute_critics_vs_audience(episodes)
+    episode_genres = sorted({ep["genre"] for ep in episodes if ep.get("genre")})
+    episode_guests = sorted({ep["guest"] for ep in episodes if ep.get("guest")})
+    episode_years = sorted({ep["year"] for ep in episodes if ep.get("year")}, reverse=True)
 
     if os.path.exists(OUT):
         shutil.rmtree(OUT)
@@ -623,6 +802,12 @@ def build():
         "episodes_with_drinks": episodes_with_drinks,
         "episodes_with_snacks": episodes_with_snacks,
         "start_here_picks": start_here_picks,
+        "genre_breakdown": genre_breakdown,
+        "critics_vs_audience": critics_vs_audience,
+        "toptrumps_genres": toptrumps_genres,
+        "episode_genres": episode_genres,
+        "episode_guests": episode_guests,
+        "episode_years": episode_years,
         "year": datetime.now().year,
         "root": "",
     }
