@@ -112,13 +112,27 @@ def fetch_cover(film_title, api_key, cache):
                 timeout=8,
             )
             data = resp.json()
-            if data.get("Response") == "True":
-                poster = data.get("Poster")
-                if poster and poster != "N/A":
-                    result["poster"] = poster
-                imdb_id = data.get("imdbID")
-                if imdb_id:
-                    result["imdb_id"] = imdb_id
+            if data.get("Response") != "True":
+                # Exact-title lookup failed - the episode title doesn't always match
+                # OMDb's official wording (e.g. "Kill Bill" vs "Kill Bill: Vol. 1", or
+                # "&" vs "and" in "Indiana Jones & the Last Crusade"). Fall back to
+                # OMDb's fuzzier search endpoint and take its top match instead of
+                # giving up and showing no cover art at all.
+                search_resp = requests.get(
+                    "https://www.omdbapi.com/",
+                    params={"s": film_title, "apikey": api_key},
+                    timeout=8,
+                )
+                search_data = search_resp.json()
+                if search_data.get("Response") == "True" and search_data.get("Search"):
+                    data = search_data["Search"][0]
+
+            poster = data.get("Poster")
+            if poster and poster != "N/A":
+                result["poster"] = poster
+            imdb_id = data.get("imdbID")
+            if imdb_id:
+                result["imdb_id"] = imdb_id
         except Exception as e:
             print(f"  OMDb lookup failed for '{film_title}': {e}")
 
@@ -160,6 +174,28 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
         title = entry.get("title", "Untitled episode")
         season, rank, film_title = parse_episode_title(title)
 
+        # Spotify for Creators lets you set a numeric "Season number" and
+        # "Episode number" per episode (these come through the feed as the
+        # itunes:season / itunes:episode tags) - these are far more reliable
+        # than parsing the season out of freeform title text, so prefer them
+        # when present. episode_num also gives a true chronological sort key
+        # for episodes that don't have a single ranked film (recap/catch-up
+        # episodes), instead of relying on RSS feed order.
+        raw_season = entry.get("itunes_season")
+        if raw_season not in (None, ""):
+            try:
+                season = int(raw_season)
+            except (TypeError, ValueError):
+                pass
+
+        episode_num = None
+        raw_episode = entry.get("itunes_episode")
+        if raw_episode not in (None, ""):
+            try:
+                episode_num = int(raw_episode)
+            except (TypeError, ValueError):
+                episode_num = None
+
         cover = fetch_cover(film_title, omdb_api_key, cover_cache)
         imdb_link = (
             f"https://www.imdb.com/title/{cover['imdb_id']}/"
@@ -177,6 +213,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
             "link": link,
             "season": season,
             "rank": rank,
+            "episode_num": episode_num,
             "film_title": film_title,
             "poster": cover.get("poster"),
             "imdb_link": imdb_link,
@@ -262,6 +299,13 @@ def group_by_decade(episodes):
         for (low, high), eps in sorted(buckets.items())
     ]
     if other:
+        # Catch-up/recap episodes without a single ranked film (e.g. "Roll of
+        # the Dice" episodes, season intros/finales) - order by episode
+        # number so they read chronologically, oldest first. Anything
+        # without a parsed episode number (shouldn't normally happen once
+        # Spotify's season/episode fields are set) sorts to the very end
+        # rather than breaking the sort.
+        other = sorted(other, key=lambda e: (e.get("episode_num") is None, e.get("episode_num") or 0))
         groups.append({"label": "Other Episodes", "episodes": other})
     return groups
 
