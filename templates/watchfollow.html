@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Watch & Follow - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Watch &amp; Follow</h2>
+  <p class="intro-blurb">Handy film sites, plus the accounts we follow for our own film fix.</p>
+
+  <div class="follow-section">
+    <h3>Trusted Resources</h3>
+    <div class="follow-grid">
+      {% for url, name, sub, icon in [
+        ("https://www.imdb.com", "IMDb", "cast, crew & trivia", "imdb.png"),
+        ("https://letterboxd.com", "Letterboxd", "track & review everything you watch", "letterboxd.png"),
+        ("https://www.theringer.com", "The Ringer", "film & pop culture media", "the-ringer.png"),
+        ("https://earwolf.com/show/how-did-this-get-made/", "How Did This Get Made?", "Earwolf podcast", "hdtgm.png"),
+        ("https://www.theringer.com/rewatchables", "The Rewatchables", "Ringer podcast", "rewatchables.png"),
+        ("https://earwolf.com", "Earwolf", "podcast network", "earwolf.png"),
+      ] %}
+      <a class="follow-card" href="{{ url }}" target="_blank" rel="noopener">
+        <span class="icon"><img src="{{ root }}static/follow-icons/{{ icon }}" alt=""></span>
+        <span class="text"><span class="name">{{ name }}</span><span class="sub">{{ sub }}</span></span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="follow-section">
+    <h3>Film Podcasts &amp; Pages We Follow</h3>
+    <div class="follow-shelf">
+      {% for handle, name, blurb, colour in [
+        ("chiswickcinema", "Chiswick Cinema", "Local cinema news and screening highlights", "gold"),
+        ("filmbusterspod", "FilmBusters", "Film review podcast, new releases and cult picks", "teal"),
+        ("retroramblepod", "Retro Ramble Blog", "A nostalgic look back at retro movies and TV", "coral"),
+        ("movieketchuppod", "Movie Ketchup Podcast", "Casual chat on the latest movie releases", "gold"),
+        ("35mm_midnight", "35MM Movie Club & Midnight Gamer Journal", "Movie club meets late-night gaming culture", "teal"),
+        ("cinestudypodcast", "Movie Podcast", "Deep dives into film craft and story", "coral"),
+        ("thereelzodiac", "Movie Review Podcast", "Star-sign-themed movie reviews and rankings", "gold"),
+        ("nomorelatefees", "90s & 2000s Movie Podcast", "Video-store-era movies, one throwback at a time", "teal"),
+        ("eds_movie_review", "Ed's Movie Review", "One host's honest take on new releases", "coral"),
+        ("emilia.loves.movies", "emilia.loves.movies", "Movie recommendations and a personal watch diary", "gold"),
+        ("80smontagepod", "'80s Movie Montage Podcast", "Celebrating the best of '80s cinema", "teal"),
+        ("featurefanaticspod", "Feature Fanatics Podcast", "Two fans, one feature film every week", "coral"),
+        ("releasedaterewind", "Release Date Rewind", "Revisiting films on their original release date", "gold"),
+        ("moviememoriespodcast", "Movie Memories Podcast", "The films that shaped a generation", "teal"),
+        ("moviefriendspodcast", "Movie Friends Podcast", "Friends talking through the movies they love", "coral"),
+        ("_thecinemascopepodcast", "Cinemascope Podcast", "A wide-lens look at cinema old and new", "gold"),
+        ("moviedadspod", "Movie Dads Podcast", "Dads reviewing movies (and parenting through them)", "teal"),
+        ("lostinblockbuster", "Lost In Blockbuster", "A tribute to the golden age of video rental", "coral"),
+        ("moviemeltpod", "Movie Melt! Podcast", "Breaking down films scene by scene", "gold"),
+        ("brokebackcathy", "Online Film Club", "A community film club, one pick at a time", "teal"),
+        ("whatwentwrongpod", "What Went Wrong Podcast", "Dissecting the films that didn't quite land", "coral"),
+        ("cinephile.club", "Cinephile Club", "For the true film obsessives", "gold"),
+        ("filmatic", "Filmatic - Movies & Cinema", "Daily film news and recommendations", "teal"),
+        ("circleranks", "CircleRanks - Movie & TV Rating App", "Rank and rate your favourite films and shows", "coral"),
+        ("themoviepodcast", "The Movie Podcast", "Weekly conversation on everything in cinema", "gold"),
+        ("wethoughtthiswasgood", "We Thought This Was Good?", "Revisiting movies that maybe weren't as good as remembered", "teal"),
+        ("lastblockbustermovie", "The Last Blockbuster", "All things the last Blockbuster store on Earth", "coral"),
+        ("didjaeversee", "Didja Ever See?", "Underrated and forgotten films worth a watch", "gold"),
+        ("theboxofficebearsmoviepodcast", "The Box Office Bears Movie Podcast", "Box office numbers meet movie chat", "teal"),
+        ("mamaneedsamoviepod", "Mama Needs A Movie Podcast", "A parent's guide to movie night picks", "coral"),
+      ] %}
+      <a class="follow-shelf-card" href="https://www.instagram.com/{{ handle }}/" target="_blank" rel="noopener">
+        <span class="avatar-circle avatar-{{ colour }}">{{ name[0]|upper }}</span>
+        <span class="name">{{ name }}</span>
+        <span class="blurb">{{ blurb }}</span>
+        <span class="handle">@{{ handle }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</main>
+{% endblock %}

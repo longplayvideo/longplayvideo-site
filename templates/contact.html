@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Contact - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Contact</h2>
+  {% if config.contact_email and "PASTE_" not in config.contact_email %}
+    <p>Get in touch: <a href="mailto:{{ config.contact_email }}">{{ config.contact_email }}</a></p>
+  {% else %}
+    <div class="empty-state">Add a contact email to <code>config.json</code> (<code>contact_email</code>) to show it here.</div>
+  {% endif %}
+  <p style="margin-top:20px;">You can also find us on <a href="{{ config.instagram_url }}" target="_blank" rel="noopener">Instagram</a> and <a href="{{ config.spotify_url }}" target="_blank" rel="noopener">Spotify</a>.</p>
+
+  {% set platforms = [
+    ("Apple Podcasts", config.apple_podcasts_url),
+    ("Amazon Music", config.amazon_music_url),
+    ("Castbox", config.castbox_url),
+    ("iHeartRadio", config.iheart_url),
+    ("Pocket Casts", config.pocket_casts_url)
+  ] %}
+  {% set live_platforms = [] %}
+  {% for name, url in platforms %}
+    {% if url and "PASTE_" not in url %}{% set _ = live_platforms.append((name, url)) %}{% endif %}
+  {% endfor %}
+  {% if live_platforms %}
+  <p style="margin-top:8px;">Also listen on:
+    {% for name, url in live_platforms %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</main>
+{% endblock %}

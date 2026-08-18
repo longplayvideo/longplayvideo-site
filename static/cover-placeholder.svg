@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 138" width="92" height="138">
+  <rect width="92" height="138" fill="#1c1230"/>
+  <rect x="0" y="0" width="92" height="138" fill="none" stroke="#e8b452" stroke-opacity="0.35" stroke-width="2"/>
+  <circle cx="46" cy="55" r="20" fill="none" stroke="#e8b452" stroke-width="2.5" opacity="0.85"/>
+  <circle cx="46" cy="55" r="5" fill="none" stroke="#e8b452" stroke-width="2" opacity="0.85"/>
+  <circle cx="46" cy="41" r="3.2" fill="#e8b452" opacity="0.85"/>
+  <circle cx="58" cy="49" r="3.2" fill="#e8b452" opacity="0.85"/>
+  <circle cx="58" cy="62" r="3.2" fill="#e8b452" opacity="0.85"/>
+  <circle cx="34" cy="62" r="3.2" fill="#e8b452" opacity="0.85"/>
+  <circle cx="34" cy="49" r="3.2" fill="#e8b452" opacity="0.85"/>
+  <text x="46" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="700" fill="#e8b452" opacity="0.85" letter-spacing="0.5">NO COVER</text>
+  <text x="46" y="111" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="700" fill="#e8b452" opacity="0.85" letter-spacing="0.5">YET</text>
+</svg>

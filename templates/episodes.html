@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Episodes - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">All Episodes</h2>
+
+  {% if episodes %}
+  <div class="episode-controls">
+    <div class="season-filter-group">
+      <button type="button" class="season-filter-btn active" data-filter="all">All</button>
+      {% for group in seasons %}
+        {% if group.number %}<button type="button" class="season-filter-btn" data-filter="season-{{ group.number }}">Season {{ group.number }}</button>{% endif %}
+      {% endfor %}
+    </div>
+    <input type="text" class="episode-search" id="episode-search" placeholder="Search by film title...">
+  </div>
+
+    {% for group in seasons|reverse %}
+      <div class="season-block" data-season="season-{{ group.number }}">
+        <h3 class="season-title" id="season-{{ group.number }}">{% if group.number %}Season {{ group.number }}{% else %}Other Episodes{% endif %}</h3>
+        {% for decade in group.decades %}
+        <div class="decade-block">
+          <h4 class="decade-title">{{ decade.label }}</h4>
+          {% for ep in decade.episodes %}
+          <div class="episode-card" data-title="{{ ep.film_title|lower }}">
+            <div class="cover">{% if ep.poster %}<img src="{{ ep.poster }}" alt="{{ ep.film_title }} cover" loading="lazy">{% endif %}</div>
+            <div class="body">
+              <h3>{{ ep.title }}</h3>
+              <div class="meta">{{ ep.date }}{% if ep.duration %} &middot; {{ ep.duration }}{% endif %}</div>
+              <p>{{ ep.summary }}</p>
+              <div class="card-links">
+                <span class="ep-listen-icons">
+                  {% if ep.link %}<a href="{{ ep.link }}" target="_blank" rel="noopener" aria-label="Listen on Spotify"><img src="{{ root }}static/icon-spotify.png" alt="Spotify"></a>{% endif %}
+                  {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener" aria-label="Listen on Apple Podcasts"><img src="{{ root }}static/icon-apple-podcasts.png" alt="Apple Podcasts"></a>{% endif %}
+                  {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Listen on Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt="Amazon Music"></a>{% endif %}
+                </span>
+                {% if ep.imdb_link %}<a class="imdb-link" href="{{ ep.imdb_link }}" target="_blank" rel="noopener">IMDb</a>{% endif %}
+                {% if ep.toptrumps_slug %}<a class="toptrumps-link" href="{{ root }}stats.html#{{ ep.toptrumps_slug }}">Top Trumps</a>{% endif %}
+                {% if ep.kev_drink_name %}<span class="snack-tag"{% if ep.kev_drink_ingredients %} data-ingredients="{{ ep.kev_drink_ingredients }}" tabindex="0"{% elif ep.kev_glass_name %} title="{{ ep.kev_glass_name }}"{% endif %}>{{ ep.kev_drink_emoji }} Kev: {{ ep.kev_drink_name }}</span>{% endif %}
+                {% if ep.andy_drink_name %}<span class="snack-tag"{% if ep.andy_drink_ingredients %} data-ingredients="{{ ep.andy_drink_ingredients }}" tabindex="0"{% elif ep.andy_glass_name %} title="{{ ep.andy_glass_name }}"{% endif %}>{{ ep.andy_drink_emoji }} Andy: {{ ep.andy_drink_name }}</span>{% endif %}
+                {% if ep.snack_name %}<span class="snack-tag"{% if ep.snack_ingredients %} data-ingredients="{{ ep.snack_ingredients }}" tabindex="0"{% endif %}>{{ ep.snack_emoji }} {{ ep.snack_name }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <p class="no-results" id="no-results">No episodes match that search.</p>
+  {% else %}
+    <div class="empty-state">
+      No episodes loaded yet. Add your Spotify RSS feed URL to <code>config.json</code> and the site will populate automatically on the next rebuild.
+    </div>
+  {% endif %}
+</main>
+
+<button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
+
+<script>
+(function () {
+  var filterBtns = document.querySelectorAll(".season-filter-btn");
+  var seasonBlocks = document.querySelectorAll(".season-block");
+  var searchInput = document.getElementById("episode-search");
+  var noResults = document.getElementById("no-results");
+
+  function applyFilters() {
+    var activeFilter = document.querySelector(".season-filter-btn.active").dataset.filter;
+    var query = (searchInput.value || "").trim().toLowerCase();
+    var anyVisible = false;
+
+    seasonBlocks.forEach(function (block) {
+      var seasonMatches = activeFilter === "all" || block.dataset.season === activeFilter;
+
+      block.querySelectorAll(".decade-block").forEach(function (decade) {
+        var decadeHasVisibleCard = false;
+        decade.querySelectorAll(".episode-card").forEach(function (card) {
+          var titleMatches = !query || card.dataset.title.indexOf(query) !== -1;
+          var visible = seasonMatches && titleMatches;
+          card.style.display = visible ? "" : "none";
+          if (visible) { decadeHasVisibleCard = true; anyVisible = true; }
+        });
+        decade.style.display = decadeHasVisibleCard ? "" : "none";
+      });
+
+      block.style.display = seasonMatches ? "" : "none";
+    });
+
+    noResults.style.display = anyVisible ? "none" : "block";
+  }
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      filterBtns.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      applyFilters();
+    });
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilters);
+  }
+
+  var backToTop = document.getElementById("back-to-top");
+  window.addEventListener("scroll", function () {
+    backToTop.classList.toggle("visible", window.scrollY > 600);
+  });
+  backToTop.addEventListener("click", function () {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+})();
+</script>
+{% endblock %}

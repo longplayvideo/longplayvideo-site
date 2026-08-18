@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Merch - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Merch</h2>
+  <p>Tees, tapes and other bits from behind the bar - printed to order, no stock sitting in a garage.</p>
+  {% if config.merch_url and "PASTE_" not in config.merch_url %}
+    <p><a class="btn" href="{{ config.merch_url }}" target="_blank" rel="noopener">Shop the Merch</a></p>
+  {% else %}
+    <div class="empty-state">
+      Add your Inkthreadable store link to <code>config.json</code> (<code>merch_url</code>) to show it here.
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

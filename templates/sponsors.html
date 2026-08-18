@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sponsors - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Sponsors</h2>
+  <div class="sponsor-block">
+    <img src="{{ root }}static/outout-logo.jpg" alt="OutOut logo" class="sponsor-logo">
+    <p>Long Play Video is proudly supported by OutOut.</p>
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}
+      <p><a class="btn" href="{{ config.outout_url }}" target="_blank" rel="noopener">Visit OutOut</a></p>
+    {% else %}
+      <div class="empty-state">
+        Add OutOut's website link to <code>config.json</code> (<code>outout_url</code>) to show it here.
+      </div>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

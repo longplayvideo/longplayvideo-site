@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Top Trumps & Stats - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Top Trumps &amp; Stats</h2>
+
+  {% if season_progress %}
+  <div class="progress-block">
+    {% for p in season_progress %}
+    <div class="progress-label"><span>Season {{ p.number }}</span><span>{{ p.count }} of {{ p.target }} watched</span></div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:{{ p.pct }}%;"></div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="surprise-block">
+    {% if kev_list or andy_list %}
+    <button type="button" class="btn btn-small btn-ghost" id="surprise-andy">Surprise me - Season 1</button>
+    <button type="button" class="btn btn-small btn-ghost" id="surprise-kev">Surprise me - Season 2</button>
+    <div class="surprise-result" id="surprise-result"></div>
+    {% endif %}
+  </div>
+
+  <div class="toggle-group">
+    <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
+    <button type="button" class="toggle-btn" data-panel="panel-stats">Stats</button>
+    <button type="button" class="toggle-btn" data-panel="panel-drinks">Drinks Menu</button>
+    <button type="button" class="toggle-btn" data-panel="panel-snacks">Snacks Menu</button>
+  </div>
+
+  <div class="toggle-panel active" id="panel-toptrumps">
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote. New cards get added as we go, drop a new image into <code>static/toptrumps/</code> and it shows up here automatically.</p>
+    {% if toptrumps_cards %}
+    <div class="toptrumps-grid">
+      {% for card in toptrumps_cards %}
+      <a class="toptrumps-card" id="{{ card.slug }}" href="{{ root }}static/toptrumps/{{ card.file }}" target="_blank" rel="noopener">
+        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="lazy">
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No Top Trumps cards yet. Drop image files into <code>static/toptrumps/</code> and they'll appear here on the next rebuild.</div>
+    {% endif %}
+  </div>
+
+  <div class="toggle-panel" id="panel-stats">
+    <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list.</p>
+    <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
+    <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
+    <img class="stats-chart" src="{{ root }}static/stats/explosions-leaderboard.png" alt="Most explosive films leaderboard">
+    {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
+      <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
+    {% endif %}
+  </div>
+
+  <div class="toggle-panel" id="panel-drinks">
+    <p class="intro-blurb" style="margin-bottom:20px;">The drink that represents each film, picked by Kev and Andy every episode. Tap or hover a drink with a dotted underline for the ingredients.</p>
+    {% if episodes_with_drinks %}
+    <div class="link-list" style="list-style:none;">
+      {% for ep in episodes_with_drinks %}
+      {% if ep.kev_drink_name or ep.andy_drink_name %}
+      <div class="episode-card">
+        <div class="body">
+          <h3>{{ ep.film_title }}</h3>
+          <div class="card-links">
+            {% if ep.kev_drink_name %}<span class="snack-tag"{% if ep.kev_drink_ingredients %} data-ingredients="{{ ep.kev_drink_ingredients }}" tabindex="0"{% elif ep.kev_glass_name %} title="{{ ep.kev_glass_name }}"{% endif %}>{{ ep.kev_drink_emoji }} Kev: {{ ep.kev_drink_name }}</span>{% endif %}
+            {% if ep.andy_drink_name %}<span class="snack-tag"{% if ep.andy_drink_ingredients %} data-ingredients="{{ ep.andy_drink_ingredients }}" tabindex="0"{% elif ep.andy_glass_name %} title="{{ ep.andy_glass_name }}"{% endif %}>{{ ep.andy_drink_emoji }} Andy: {{ ep.andy_drink_name }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No drinks logged yet. Add a Google Sheet share link to <code>config.json</code> (<code>drinks_sheet_url</code>) with columns for Film, Drink Name, Drink Category, Snack Name and Snack Category, and this fills in automatically.</div>
+    {% endif %}
+  </div>
+
+  <div class="toggle-panel" id="panel-snacks">
+    <p class="intro-blurb" style="margin-bottom:20px;">The snack that represents each film, picked by Kev and Andy every episode. Tap or hover a snack with a dotted underline for the ingredients.</p>
+    {% if episodes_with_snacks %}
+    <div class="link-list" style="list-style:none;">
+      {% for ep in episodes_with_snacks %}
+      <div class="episode-card">
+        <div class="body">
+          <h3>{{ ep.film_title }}</h3>
+          <div class="card-links">
+            <span class="snack-tag"{% if ep.snack_ingredients %} data-ingredients="{{ ep.snack_ingredients }}" tabindex="0"{% endif %}>{{ ep.snack_emoji }} {{ ep.snack_name }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No snacks logged yet. Add a Google Sheet share link to <code>config.json</code> (<code>drinks_sheet_url</code>) with a Snack Name column, and this fills in automatically.</div>
+    {% endif %}
+  </div>
+</main>
+
+<script>
+(function () {
+  var toggleBtns = document.querySelectorAll(".toggle-btn");
+  var panels = document.querySelectorAll(".toggle-panel");
+  toggleBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      toggleBtns.forEach(function (b) { b.classList.remove("active"); });
+      panels.forEach(function (p) { p.classList.remove("active"); });
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.panel).classList.add("active");
+    });
+  });
+
+  var kevList = {{ kev_list|tojson }};
+  var andyList = {{ andy_list|tojson }};
+  var resultEl = document.getElementById("surprise-result");
+  function pickRandom(list, label) {
+    if (!list.length || !resultEl) return;
+    var pick = list[Math.floor(Math.random() * list.length)];
+    resultEl.textContent = "🎲 " + label + ": " + pick;
+  }
+  var andyBtn = document.getElementById("surprise-andy");
+  var kevBtn = document.getElementById("surprise-kev");
+  if (andyBtn) andyBtn.addEventListener("click", function () { pickRandom(andyList, "Season 1 pick"); });
+  if (kevBtn) kevBtn.addEventListener("click", function () { pickRandom(kevList, "Season 2 pick"); });
+})();
+</script>
+{% endblock %}

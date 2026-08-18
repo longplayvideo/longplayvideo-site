@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{{ config.site_title }}{% endblock %}</title>
+<meta name="description" content="{{ config.description }}">
+<meta property="og:title" content="{% block og_title %}{{ config.site_title }}{% endblock %}">
+<meta property="og:description" content="{{ config.description }}">
+<meta property="og:image" content="{% if config.site_url and "PASTE_" not in config.site_url %}{{ config.site_url }}{% endif %}{{ root }}static/og-image.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="{{ root }}static/style.css">
+<link rel="icon" href="{{ root }}static/header-logo.jpg">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="{{ root }}index.html">
+    <img src="{{ root }}static/header-logo.jpg" alt="{{ config.site_title }} logo">
+    {{ config.site_title }}
+  </a>
+  <nav class="site-nav">
+    <a href="{{ root }}index.html">Home</a>
+    <a href="{{ root }}starthere.html">Start Here</a>
+    <a href="{{ root }}episodes.html">Episodes</a>
+    <a href="{{ root }}stats.html">Top Trumps &amp; Stats</a>
+    <a href="{{ root }}shop.html">Shop</a>
+    <a href="{{ root }}watchfollow.html">Watch &amp; Follow</a>
+    <a href="{{ root }}about.html">About</a>
+  </nav>
+</header>
+
+{% block content %}{% endblock %}
+
+<footer class="site-footer">
+  <div>&copy; {{ year }} {{ config.site_title }}. This site rebuilds itself automatically from the show's RSS feed.</div>
+  <div class="social-links">
+    <a href="{{ config.spotify_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-spotify.png" alt=""> Spotify</a>
+    <a href="{{ config.instagram_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-instagram.png" alt=""> Instagram</a>
+    {% if config.youtube_url and "PASTE_" not in config.youtube_url %}<a href="{{ config.youtube_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-youtube.png" alt=""> YouTube</a>{% endif %}
+    {% if config.tiktok_url and "PASTE_" not in config.tiktok_url %}<a href="{{ config.tiktok_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-tiktok.png" alt=""> TikTok</a>{% endif %}
+    {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-apple-podcasts.png" alt=""> Apple Podcasts</a>{% endif %}
+    {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-amazon-music.png" alt=""> Amazon Music</a>{% endif %}
+    {% if config.rss_url and "PASTE_" not in config.rss_url %}<a href="{{ config.rss_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-rss.png" alt=""> RSS</a>{% endif %}
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}<a href="{{ config.outout_url }}" target="_blank" rel="noopener"><img class="sponsor-footer-logo" src="{{ root }}static/outout-logo.jpg" alt="OutOut"></a>{% endif %}
+  </div>
+</footer>
+</body>
+</html>

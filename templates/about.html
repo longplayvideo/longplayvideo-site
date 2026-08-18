@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}About - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">About</h2>
+
+  <p class="intro-blurb">Long Play Video is a film podcast hosted by Kev (Sydney) and Andy (UK) - two mates working through their top 100 favourite movies of all time, one film a week, from opposite sides of the planet.</p>
+
+  <div class="history-block">
+    <img src="{{ root }}static/header-logo.jpg" alt="The Long Play Video shop, Season 1">
+    <div class="text">
+      <h3 style="margin-top:0;">Season 1: The Video Shop Era</h3>
+      <p>It started behind the counter of a nostalgic, Blockbuster-style video rental shop, working through Andy's top 100 favourite films of all time.</p>
+    </div>
+  </div>
+
+  <div class="history-block">
+    <img src="{{ root }}static/cover.jpg" alt="Cocktails and Shattered Dreams, Season 2">
+    <div class="text">
+      <h3 style="margin-top:0;">Season 2: Cocktails and Shattered Dreams</h3>
+      <p>Now it's a tiki bar on a hidden beach island, tropical drinks in hand, working through Kev's top 100 favourite films of all time.</p>
+    </div>
+  </div>
+
+  <h3>Andy's Bio</h3>
+  <div class="empty-state">Add Andy's bio here by editing <code>templates/about.html</code>.</div>
+
+  <h3 style="margin-top:32px;">Kev's Bio</h3>
+  <div class="empty-state">Add Kev's bio here by editing <code>templates/about.html</code>.</div>
+
+  <h3 style="margin-top:44px;">Our Sponsor</h3>
+  <div class="sponsor-block">
+    <img src="{{ root }}static/outout-logo.jpg" alt="OutOut logo" class="sponsor-logo">
+    <p>Long Play Video is proudly supported by OutOut - the sponsor behind our "drink that represents the film" segment each episode.</p>
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}
+      <p><a class="btn" href="{{ config.outout_url }}" target="_blank" rel="noopener">Visit OutOut</a></p>
+    {% else %}
+      <div class="empty-state">Add OutOut's website link to <code>config.json</code> (<code>outout_url</code>) to show it here.</div>
+    {% endif %}
+  </div>
+
+  <h3 style="margin-top:44px;">Get In Touch</h3>
+  {% if config.contact_email and "PASTE_" not in config.contact_email %}
+    <p>Get in touch: <a href="mailto:{{ config.contact_email }}">{{ config.contact_email }}</a></p>
+  {% else %}
+    <div class="empty-state">Add a contact email to <code>config.json</code> (<code>contact_email</code>) to show it here.</div>
+  {% endif %}
+  {% set follow_links = [] %}
+  {% set _ = follow_links.append(('Instagram', config.instagram_url)) %}
+  {% set _ = follow_links.append(('Spotify', config.spotify_url)) %}
+  {% if config.tiktok_url and "PASTE_" not in config.tiktok_url %}{% set _ = follow_links.append(('TikTok', config.tiktok_url)) %}{% endif %}
+  {% if config.youtube_url and "PASTE_" not in config.youtube_url %}{% set _ = follow_links.append(('YouTube', config.youtube_url)) %}{% endif %}
+  <p style="margin-top:20px;">You can also find us on
+    {% for name, url in follow_links %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{% if not loop.last and loop.revindex0 > 1 %}, {% elif not loop.last %} and {% endif %}{% endfor %}.
+  </p>
+
+  {% set platforms = [
+    ("Apple Podcasts", config.apple_podcasts_url),
+    ("Amazon Music", config.amazon_music_url),
+    ("Castbox", config.castbox_url),
+    ("iHeartRadio", config.iheart_url),
+    ("Pocket Casts", config.pocket_casts_url),
+    ("Goodpods", config.goodpods_url),
+    ("Overcast", config.overcast_url)
+  ] %}
+  {% set live_platforms = [] %}
+  {% for name, url in platforms %}
+    {% if url and "PASTE_" not in url %}{% set _ = live_platforms.append((name, url)) %}{% endif %}
+  {% endfor %}
+  {% if live_platforms %}
+  <p style="margin-top:8px;">Also listen on:
+    {% for name, url in live_platforms %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</main>
+{% endblock %}

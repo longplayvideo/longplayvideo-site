@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Shop - {{ config.site_title }}{% endblock %}
+{% block content %}
+<main>
+  <h2 class="section-title">Shop</h2>
+  <span class="coming-soon-badge">Coming Soon</span>
+  <p>Tees, tapes and other bits from behind the bar - printed to order, no stock sitting in a garage. We're not taking orders just yet, but here's a look at what we've got so far.</p>
+
+  {% if shop_items %}
+  <div class="showcase-grid">
+    {% for item in shop_items %}
+    <div class="showcase-card">
+      <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy">
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">No designs uploaded yet. Drop image files into <code>static/shop/</code> and they'll show up here automatically on the next rebuild.</div>
+  {% endif %}
+
+  {% if config.merch_url and "PASTE_" not in config.merch_url %}
+    <p style="margin-top:24px;"><a class="btn" href="{{ config.merch_url }}" target="_blank" rel="noopener">Visit the Store</a></p>
+  {% endif %}
+</main>
+{% endblock %}
