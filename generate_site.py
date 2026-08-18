@@ -259,6 +259,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
             "rank": rank,
             "episode_num": episode_num,
             "film_title": film_title,
+            "slug": slugify(film_title),
             "poster": cover.get("poster"),
             "imdb_link": imdb_link,
             "published_ts": published_ts,
@@ -420,19 +421,23 @@ def group_by_decade(episodes):
     return groups
 
 
-SEASON_TARGETS = {1: 99, 2: 101}  # Andy's and Kev's full list lengths
+SEASON_TARGETS = {1: 100, 2: 100}  # displayed as a flat "of 100" per season,
+# matching the "100 Movies" tagline - the real planned-list lengths (Andy's
+# 99, Kev's 101) are correct but confusing to show to visitors, so the
+# gauge always reads against 100 even though the true count can occasionally
+# poke just over or under that round number.
 
 
 def season_progress(seasons):
     """
-    [{'number':1,'count':N,'target':99,'pct':...}, ...] for the progress meter.
+    [{'number':1,'count':N,'target':100,'pct':...}, ...] for the progress meter.
     'count' is every published episode in the season, including recap/
     catch-up episodes like "Roll of the Dice" that don't map to a single
     ranked film. It's labelled "episodes released" (not "films watched") on
     the page specifically so it's fine for count to occasionally read
-    higher than the ranked-film target - that's honestly true (more
-    episodes than films exist because of the recaps), rather than a
-    films-vs-films mismatch that would look like a bug.
+    higher than the target - that's honestly true (more episodes than films
+    exist because of the recaps), rather than a films-vs-films mismatch that
+    would look like a bug.
     """
     progress = []
     for group in seasons:
@@ -782,6 +787,10 @@ def build():
     episode_genres = sorted({ep["genre"] for ep in episodes if ep.get("genre")})
     episode_guests = sorted({ep["guest"] for ep in episodes if ep.get("guest")})
     episode_years = sorted({ep["year"] for ep in episodes if ep.get("year")}, reverse=True)
+    # Lets the "Surprise me" buttons (which pick a title from the original
+    # planned lists in titles.json) link straight to the matching episode
+    # card if it's been released already, rather than just naming it.
+    episode_slug_lookup = {normalize_title(ep["film_title"]): ep["slug"] for ep in episodes}
 
     if os.path.exists(OUT):
         shutil.rmtree(OUT)
@@ -808,6 +817,7 @@ def build():
         "episode_genres": episode_genres,
         "episode_guests": episode_guests,
         "episode_years": episode_years,
+        "episode_slug_lookup": episode_slug_lookup,
         "year": datetime.now().year,
         "root": "",
     }
