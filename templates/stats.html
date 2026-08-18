@@ -32,7 +32,11 @@
          data-title="{{ card.title|lower }}" data-genre="{{ card.genre or '' }}"
          data-imdb="{{ card.imdb_rating if card.imdb_rating is not none else '' }}"
          data-rt="{{ card.rt_audience if card.rt_audience is not none else '' }}">
+        {% if loop.index0 < 8 %}
+        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="eager" fetchpriority="high">
+        {% else %}
         <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="lazy">
+        {% endif %}
       </a>
       {% endfor %}
     </div>
@@ -118,6 +122,8 @@
   </div>
 </main>
 
+<button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
+
 {% if genre_breakdown or critics_vs_audience %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 {% endif %}
@@ -199,6 +205,17 @@
 
     if (genreFilter) genreFilter.addEventListener("change", applyToptrumps);
     if (sortSelect) sortSelect.addEventListener("change", applyToptrumps);
+  }
+
+  // --- Back to top (shared across all four panels on this page) ---
+  var backToTop = document.getElementById("back-to-top");
+  if (backToTop) {
+    window.addEventListener("scroll", function () {
+      backToTop.classList.toggle("visible", window.scrollY > 600);
+    });
+    backToTop.addEventListener("click", function () {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   }
 
   // --- Genre breakdown + critics vs audience charts (Chart.js), only
