@@ -8,7 +8,7 @@
   {% if start_here_picks %}
     {% for group in start_here_picks %}
     <h3{% if not loop.first %} style="margin-top:36px;"{% endif %}>Season {{ group.season }}: {{ group.label }}</h3>
-    <div class="showcase-grid">
+    <div class="start-here-grid">
       {% for ep in group.episodes %}
       <div class="episode-card">
         <div class="cover">{% if ep.poster %}<img src="{{ ep.poster }}" alt="{{ ep.film_title }} cover" loading="lazy">{% endif %}</div>
