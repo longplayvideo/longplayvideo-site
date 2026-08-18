@@ -6,6 +6,7 @@ the GitHub Actions workflow (.github/workflows/deploy.yml) run it on a
 schedule so the site keeps itself up to date with no manual work.
 """
 import calendar
+import difflib
 import html
 import json
 import os
@@ -460,6 +461,54 @@ def load_titles():
         return json.load(f)
 
 
+def resolve_surprise_titles(titles_list, episodes):
+    """
+    Matches the freeform titles in titles.json against the real episode
+    list so the "Surprise me" buttons can link straight to the matching
+    episode card. The two lists don't always agree exactly - titles.json
+    is a hand-typed want-to-watch list, so it sometimes drops "The",
+    shortens a title, or has a small typo (a missing/doubled letter or
+    word) - so this falls through three passes before giving up:
+      1. exact match on the normalized title
+      2. containment (handles "Matrix" vs "The Matrix", "Spring" vs the
+         full "Spring, Summer, Autumn..." title, etc.)
+      3. closest fuzzy match, accepted only above a safety threshold so it
+         won't confidently link to the wrong film
+    Returns {normalized titles.json title: episode slug}, used as a
+    lookup table baked into the page so the client-side JS just does an
+    exact key lookup - no fuzzy matching needed in the browser.
+    """
+    episode_norms = [(normalize_title(ep["film_title"]), ep["slug"]) for ep in episodes]
+    lookup = {}
+    for title in titles_list:
+        key = normalize_title(title)
+        if not key or key in lookup:
+            continue
+
+        exact = next((slug for norm, slug in episode_norms if norm == key), None)
+        if exact:
+            lookup[key] = exact
+            continue
+
+        contains = [(norm, slug) for norm, slug in episode_norms if key in norm or norm in key]
+        if contains:
+            contains.sort(key=lambda pair: abs(len(pair[0]) - len(key)))
+            lookup[key] = contains[0][1]
+            continue
+
+        best_slug, best_ratio = None, 0.0
+        for norm, slug in episode_norms:
+            ratio = difflib.SequenceMatcher(None, key, norm).ratio()
+            if ratio > best_ratio:
+                best_slug, best_ratio = slug, ratio
+        if best_ratio >= 0.82:
+            lookup[key] = best_slug
+        # else: genuinely not released yet (or too different a title to
+        # safely guess) - left out of the lookup, JS shows "not released
+        # yet" for it.
+    return lookup
+
+
 # Keyword-based (not exact-match) so new/slightly-different category wording
 # still picks a sensible icon instead of silently falling back to default.
 DRINK_EMOJI_KEYWORDS = [
@@ -790,7 +839,7 @@ def build():
     # Lets the "Surprise me" buttons (which pick a title from the original
     # planned lists in titles.json) link straight to the matching episode
     # card if it's been released already, rather than just naming it.
-    episode_slug_lookup = {normalize_title(ep["film_title"]): ep["slug"] for ep in episodes}
+    episode_slug_lookup = resolve_surprise_titles(titles.get("kev", []) + titles.get("andy", []), episodes)
 
     if os.path.exists(OUT):
         shutil.rmtree(OUT)
