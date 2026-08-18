@@ -61,7 +61,7 @@
         <div class="decade-block">
           <h4 class="decade-title">{{ decade.label }}</h4>
           {% for ep in decade.episodes %}
-          <div class="episode-card" data-title="{{ ep.film_title|lower }}" data-genre="{{ ep.genre or '' }}" data-guest="{{ ep.guest or '' }}" data-year="{{ ep.year if ep.year is not none else '' }}">
+          <div class="episode-card" id="ep-{{ ep.slug }}" data-title="{{ ep.film_title|lower }}" data-genre="{{ ep.genre or '' }}" data-guest="{{ ep.guest or '' }}" data-year="{{ ep.year if ep.year is not none else '' }}">
             <div class="cover">{% if ep.poster %}<img src="{{ ep.poster }}" alt="{{ ep.film_title }} cover" loading="lazy">{% endif %}</div>
             <div class="body">
               <h3>{{ ep.title }}</h3>
@@ -100,11 +100,29 @@
 (function () {
   var kevList = {{ kev_list|tojson }};
   var andyList = {{ andy_list|tojson }};
+  var slugLookup = {{ episode_slug_lookup|tojson }};
   var resultEl = document.getElementById("surprise-result");
+  function normalizeTitle(text) {
+    return (text || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
   function pickRandom(list, label) {
     if (!list.length || !resultEl) return;
     var pick = list[Math.floor(Math.random() * list.length)];
-    resultEl.textContent = "🎲 " + label + ": " + pick;
+    var slug = slugLookup[normalizeTitle(pick)];
+    if (slug) {
+      resultEl.innerHTML = "🎲 " + label + ": <a href=\"#ep-" + slug + "\">" + pick + "</a>";
+      resultEl.querySelector("a").addEventListener("click", function (e) {
+        e.preventDefault();
+        var card = document.getElementById("ep-" + slug);
+        if (card) {
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+          card.classList.add("highlight-pulse");
+          setTimeout(function () { card.classList.remove("highlight-pulse"); }, 1600);
+        }
+      });
+    } else {
+      resultEl.textContent = "🎲 " + label + ": " + pick + " (not released yet)";
+    }
   }
   var andyBtn = document.getElementById("surprise-andy");
   var kevBtn = document.getElementById("surprise-kev");
