@@ -5,6 +5,7 @@ show's Spotify RSS feed. Run manually with `python generate_site.py`, or let
 the GitHub Actions workflow (.github/workflows/deploy.yml) run it on a
 schedule so the site keeps itself up to date with no manual work.
 """
+import html
 import json
 import os
 import re
@@ -42,6 +43,13 @@ SEASON_EP_RE = re.compile(r"^S0?(\d+)\s*Ep?\d+\s*-\s*", re.I)
 # number at all, just a season name.
 SEASON_FINALE_RE = re.compile(r"Season\s*(\d+)\s*Finale", re.I)
 
+# Optional trailing "(Film Title)" on a catch-up/recap episode that has no
+# "#rank" - e.g. "S01 E96 - Roll of the Dice #2 (Grosse Pointe Blank)" - lets
+# that episode get real cover art, an IMDb link and Top Trumps/drink matching
+# even though it isn't an official ranked pick. Add this to a Spotify episode
+# title any time and the next rebuild will pick it up automatically.
+PAREN_FILM_RE = re.compile(r"\(([^)]+)\)\s*$")
+
 
 def slugify(text):
     """'The Great Mouse Detective' -> 'the-great-mouse-detective', for anchor links."""
@@ -52,6 +60,24 @@ def slugify(text):
 def normalize_title(text):
     """Loose match key for comparing film titles regardless of punctuation/casing."""
     return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def strip_html(text):
+    """
+    Strips HTML tags and unescapes entities from RSS show-notes text.
+    Podcast descriptions often contain real HTML markup (bold/italic,
+    links, a "Quote:" callout) - that's fine in a podcast app, but naively
+    slicing the raw string at a fixed character count (for the compact
+    card preview) can cut off mid-tag and leave dangling/unclosed markup
+    that bleeds formatting into the rest of the card. Stripping tags first
+    keeps the preview plain, clean text everywhere it's used.
+    """
+    text = TAG_RE.sub(" ", text or "")
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def load_config():
@@ -66,24 +92,32 @@ def parse_episode_title(title):
     Recap/catch-up episodes like "S01 E96 - Roll of the Dice #2" or
     "S02 E00 - Intro to Season 2" have a season but no single ranked film -
     these still get tagged with their season (so they show up on the right
-    Season page) but rank comes back None, and the display title keeps
-    whatever followed the "S01 E96 - " prefix. "Season 1 Finale - The
-    Rundown" has no episode number at all, just a season name.
+    Season page) but rank comes back None. "Season 1 Finale - The Rundown"
+    has no episode number at all, just a season name.
+
+    For these no-rank cases, an optional trailing "(Film Title)" on the
+    title - e.g. "S01 E96 - Roll of the Dice #2 (Grosse Pointe Blank)" -
+    is used as the film name instead of the generic recap text, so the
+    episode still gets real cover art / IMDb / Top Trumps matching even
+    though it's not an official ranked pick.
     """
     m = TITLE_RE.search(title)
     if m:
         return int(m.group(1)), int(m.group(2)), m.group(3).strip()
 
+    paren_match = PAREN_FILM_RE.search(title)
+    paren_film = paren_match.group(1).strip() if paren_match else None
+
     m2 = SEASON_EP_RE.match(title)
     if m2:
         cleaned = SEASON_EP_RE.sub("", title, count=1).strip()
-        return int(m2.group(1)), None, cleaned or title
+        return int(m2.group(1)), None, paren_film or cleaned or title
 
     m3 = SEASON_FINALE_RE.search(title)
     if m3:
-        return int(m3.group(1)), None, title
+        return int(m3.group(1)), None, paren_film or title
 
-    return None, None, title
+    return None, None, paren_film or title
 
 
 def imdb_search_link(film_title):
@@ -167,7 +201,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None):
                     link = l.get("href", "")
                     break
 
-        summary = entry.get("summary", "")
+        summary = strip_html(entry.get("summary", ""))
         if len(summary) > 400:
             summary = summary[:400].rsplit(" ", 1)[0] + "..."
 
@@ -275,12 +309,33 @@ def group_by_season(episodes):
     return [{"number": k, "episodes": v} for k, v in sorted(seasons.items())]
 
 
+def _hosting_order_key(ep):
+    """
+    Sort key that reflects the order episodes were actually hosted/released
+    in, using Spotify's structured episode number (see fetch_episodes) -
+    lower episode_num = released earlier. Falls back to rank if
+    episode_num is somehow missing, since the show counts down in
+    descending rank order (starts around #91-100, ends at the #1-10
+    finale) - a higher rank number was released earlier.
+    """
+    if ep.get("episode_num") is not None:
+        return ep["episode_num"]
+    return -(ep.get("rank") or 0)
+
+
 def group_by_decade(episodes):
     """
-    Sub-groups a season's episodes into blocks of 10 by original rank
-    (#1-10, #11-20, ... #91-100) - the countdown order the films were
-    originally ranked in, before any re-ordering. Episodes without a
-    parsed rank are dropped into an "Other" bucket at the end.
+    Sub-groups a season's episodes into blocks of 10 by rank (#1-10,
+    #11-20, ... #91-100) purely for a readable heading. The blocks
+    themselves, and the episodes within each, are ordered newest-first by
+    actual hosting/release date (same convention as Spotify) rather than
+    by the rank value - the show counts down in descending rank order, so
+    ordering by rank value alone would put the season opener at the top of
+    the page instead of the newest episode. Episodes without a parsed rank
+    (catch-up/recap episodes, e.g. "Roll of the Dice") get their own
+    "Other Episodes" bucket, but it's slotted into its real chronological
+    position among the ranked blocks rather than always being pinned to
+    the end.
     """
     buckets = {}
     other = []
@@ -291,22 +346,19 @@ def group_by_decade(episodes):
             continue
         low = ((rank - 1) // 10) * 10 + 1
         high = low + 9
-        key = (low, high)
-        buckets.setdefault(key, []).append(ep)
+        buckets.setdefault((low, high), []).append(ep)
 
-    groups = [
-        {"label": f"Ranks #{low}-{high}", "episodes": sorted(eps, key=lambda e: e.get("rank") or 0)}
-        for (low, high), eps in sorted(buckets.items())
-    ]
+    groups = []
+    for (low, high), eps in buckets.items():
+        eps = sorted(eps, key=_hosting_order_key, reverse=True)
+        groups.append({"label": f"Ranks #{low}-{high}", "episodes": eps, "_key": _hosting_order_key(eps[0])})
     if other:
-        # Catch-up/recap episodes without a single ranked film (e.g. "Roll of
-        # the Dice" episodes, season intros/finales) - order by episode
-        # number so they read chronologically, oldest first. Anything
-        # without a parsed episode number (shouldn't normally happen once
-        # Spotify's season/episode fields are set) sorts to the very end
-        # rather than breaking the sort.
-        other = sorted(other, key=lambda e: (e.get("episode_num") is None, e.get("episode_num") or 0))
-        groups.append({"label": "Other Episodes", "episodes": other})
+        other = sorted(other, key=_hosting_order_key, reverse=True)
+        groups.append({"label": "Other Episodes", "episodes": other, "_key": _hosting_order_key(other[0])})
+
+    groups.sort(key=lambda g: g["_key"], reverse=True)
+    for g in groups:
+        del g["_key"]
     return groups
 
 
@@ -458,21 +510,53 @@ def load_drinks_snacks(sheet_url):
 TITLE_FIXUPS = {"Outout": "OutOut"}
 
 
+# Shop items are grouped into a category guessed from the filename ending -
+# "-tee"/"-hoodie" -> Clothing, "-cap" -> Headwear, everything else falls
+# into the catch-all last category. Rename a file to end in one of these
+# suffixes to move it between categories - no other config needed. Order
+# here also controls display order on the page.
+SHOP_CATEGORIES = [
+    ("Clothing", ("-tee", "-hoodie")),
+    ("Headwear", ("-cap",)),
+]
+DEFAULT_SHOP_CATEGORY = "Accessories & Extras"
+
+
+def categorize_shop_item(fname):
+    stem = os.path.splitext(fname)[0].lower()
+    for label, suffixes in SHOP_CATEGORIES:
+        if stem.endswith(suffixes):
+            return label
+    return DEFAULT_SHOP_CATEGORY
+
+
 def load_shop_items():
     """Same automated pattern as Top Trumps - drop an image into
-    static/shop/ and it shows up on the Shop page automatically."""
+    static/shop/ and it shows up on the Shop page automatically, grouped
+    into a category guessed from the filename (see categorize_shop_item)."""
     folder = os.path.join(ROOT, "static", "shop")
     if not os.path.isdir(folder):
         return []
-    items = []
+    grouped = {}
     for fname in sorted(os.listdir(folder)):
         if not fname.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
             continue
         title = os.path.splitext(fname)[0].replace("-", " ").replace("_", " ").title()
         for wrong, right in TITLE_FIXUPS.items():
             title = title.replace(wrong, right)
-        items.append({"file": fname, "title": title})
-    return items
+        category = categorize_shop_item(fname)
+        grouped.setdefault(category, []).append({"file": fname, "title": title})
+
+    # Note: deliberately "products", not "items" - Jinja2's dot-notation
+    # attribute lookup on a dict tries real dict methods first, so a key
+    # literally named "items" would silently resolve to dict.items()
+    # instead of the list, and break the template's {% for %} loop.
+    category_order = [label for label, _ in SHOP_CATEGORIES] + [DEFAULT_SHOP_CATEGORY]
+    return [
+        {"label": label, "products": grouped[label]}
+        for label in category_order
+        if label in grouped
+    ]
 
 
 # The curated "new here? start with these" picks - matched against the real
