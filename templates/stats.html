@@ -174,7 +174,15 @@
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
 {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard or (radar_films and radar_films|length > 1) %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<!-- Self-hosted rather than loaded from a CDN - charts were rendering
+     blank for real visitors even though everything worked in testing,
+     which pointed at the cdnjs.cloudflare.com script simply not loading
+     for some visitors (network/extension/regional blocking, a CDN
+     outage, etc.) rather than a bug in the chart code itself. Self-
+     hosting removes that dependency entirely - see static/chart.umd.min.js
+     (Chart.js 4.4.4, unmodified). Bump the version in both places
+     together if this ever needs updating. -->
+<script src="{{ root }}static/chart.umd.min.js"></script>
 {% endif %}
 <script>
 (function () {

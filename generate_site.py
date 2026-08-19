@@ -571,6 +571,25 @@ def load_titles():
         return json.load(f)
 
 
+def _title_word_list(text):
+    """Word-tokenized title, leading article stripped ("the"/"a"/"an") -
+    used only by resolve_surprise_titles' containment pass below. Unlike
+    normalize_title() (which collapses a title to one alphanumeric blob
+    and is relied on everywhere else in this file), this keeps word
+    boundaries, because "does one title contain the other" needs to mean
+    "do their words line up", not "is one a raw substring of the other" -
+    see resolve_surprise_titles for why that distinction actually matters
+    here, not just in theory."""
+    words = re.sub(r"[^a-z0-9\s]", " ", text.lower()).split()
+    while words and words[0] in ("the", "a", "an"):
+        words = words[1:]
+    return words
+
+
+def _is_word_prefix(shorter, longer):
+    return bool(shorter) and longer[:len(shorter)] == shorter
+
+
 def resolve_surprise_titles(titles_list, episodes):
     """
     Matches the freeform titles in titles.json against the real episode
@@ -580,8 +599,17 @@ def resolve_surprise_titles(titles_list, episodes):
     shortens a title, or has a small typo (a missing/doubled letter or
     word) - so this falls through three passes before giving up:
       1. exact match on the normalized title
-      2. containment (handles "Matrix" vs "The Matrix", "Spring" vs the
-         full "Spring, Summer, Autumn..." title, etc.)
+      2. containment - one title's words are a leading match for the
+         other's, once a leading "The"/"A"/"An" is stripped from both.
+         Handles "Matrix" vs "The Matrix", "Spring" vs the full "Spring,
+         Summer, Autumn..." title, etc. This has to be a *word*-boundary
+         check, not a raw substring check - a raw substring check let the
+         real, already-published film "Once" wrongly match inside
+         "Everything, Everywhere, All At Once" (a different, not-yet-aired
+         film) purely because the normalized text of the first happens to
+         appear at the tail end of the second's. Requiring whole leading
+         words to line up rules that out while still matching "Matrix"
+         inside "The Matrix" (same film, an omitted article) correctly.
       3. closest fuzzy match, accepted only above a safety threshold so it
          won't confidently link to the wrong film
     Returns {normalized titles.json title: {"slug":..., "season":...}},
@@ -593,26 +621,33 @@ def resolve_surprise_titles(titles_list, episodes):
     happens when the same film appears on both hosts' want-to-watch lists -
     see the "surprise-me duplicate titles" build warning for the full list).
     """
-    episode_norms = [(normalize_title(ep["film_title"]), ep["slug"], ep.get("season")) for ep in episodes]
+    episode_norms = [
+        (normalize_title(ep["film_title"]), _title_word_list(ep["film_title"]), ep["slug"], ep.get("season"))
+        for ep in episodes
+    ]
     lookup = {}
     for title in titles_list:
         key = normalize_title(title)
         if not key or key in lookup:
             continue
+        key_words = _title_word_list(title)
 
-        exact = next(((slug, season) for norm, slug, season in episode_norms if norm == key), None)
+        exact = next(((slug, season) for norm, words, slug, season in episode_norms if norm == key), None)
         if exact:
             lookup[key] = {"slug": exact[0], "season": exact[1]}
             continue
 
-        contains = [(norm, slug, season) for norm, slug, season in episode_norms if key in norm or norm in key]
+        contains = [
+            (norm, slug, season) for norm, words, slug, season in episode_norms
+            if _is_word_prefix(key_words, words) or _is_word_prefix(words, key_words)
+        ]
         if contains:
             contains.sort(key=lambda tup: abs(len(tup[0]) - len(key)))
             lookup[key] = {"slug": contains[0][1], "season": contains[0][2]}
             continue
 
         best_slug, best_season, best_ratio = None, None, 0.0
-        for norm, slug, season in episode_norms:
+        for norm, words, slug, season in episode_norms:
             ratio = difflib.SequenceMatcher(None, key, norm).ratio()
             if ratio > best_ratio:
                 best_slug, best_season, best_ratio = slug, season, ratio

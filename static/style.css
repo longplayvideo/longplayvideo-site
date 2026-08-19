@@ -458,17 +458,28 @@ h3.decade-title {
   background: rgba(255,255,255,0.06);
   color: var(--cream);
   font-size: 0.9rem;
+  /* Tells the browser to draw its own chrome for this control (the
+     dropdown's scrollbar, and on some platforms a hover/selection tint
+     inside the options list) in a dark variant instead of defaulting to
+     light, on top of the explicit option colours below. */
+  color-scheme: dark;
 }
 .episode-search::placeholder { color: rgba(253,246,236,0.5); }
 .episode-search:focus { outline: none; border-color: var(--gold); }
-/* The dropdown itself uses the dark theme colours above, but the options
-   list is drawn by the phone/OS with its own white popup background - if we
-   don't set explicit colours here too, the option text inherits the select's
-   cream colour and disappears against that white popup (this is what was
-   showing as blank/invisible rows on mobile). */
+/* The closed dropdown uses the dark theme colours above, but the opened
+   options list is drawn by the phone/OS/browser with its own popup
+   background - previously left unstyled here, it defaulted to plain
+   white with dark text (readable, but a jarring flash of white against
+   the rest of the site). Setting both colours explicitly and together
+   (never just one - a colour set alone against an unstyled background is
+   exactly what caused an earlier bug where option text went invisible on
+   mobile) gets it close to on-theme instead. Most desktop browsers honour
+   this for the options list; a few browsers/platforms (notably iOS
+   Safari, which always uses its own wheel picker) ignore it regardless -
+   color-scheme above is the fallback for those. */
 select.episode-search option {
-  color: var(--text);
-  background: #fff;
+  color: var(--gold-light);
+  background: var(--purple-dark);
 }
 
 .no-results { display: none; color: var(--cream); opacity: 0.7; padding: 20px 0; }
