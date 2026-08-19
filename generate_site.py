@@ -367,11 +367,18 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None, f
             "imdb_link": imdb_link,
             "published_ts": published_ts,
             "genre": stats.get("genre"),
+            "sub_genre": stats.get("sub_genre"),
             "rt_audience": stats.get("rt_audience"),
             "rt_critics": stats.get("rt_critics"),
             "imdb_rating": stats.get("imdb_rating"),
             "guest": stats.get("guest"),
             "year": stats.get("year"),
+            "runtime": stats.get("runtime"),
+            "explosions": stats.get("explosions"),
+            "deaths": stats.get("deaths"),
+            "animated_chars": stats.get("animated_chars"),
+            "budget_adj": stats.get("budget_adj"),
+            "box_office_adj": stats.get("box_office_adj"),
             "kev_drink_name": drink_snack.get("kev_drink_name"),
             "kev_drink_emoji": drink_snack.get("kev_drink_emoji"),
             "kev_glass_name": drink_snack.get("kev_glass_name"),
@@ -767,7 +774,9 @@ def _to_int(val):
     return int(f) if f is not None else None
 
 
-def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=None):
+def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=None,
+                       sub_genre=None, runtime=None, explosions=None, deaths=None,
+                       animated_chars=None, budget_adj=None, dom_rev_adj=None, intl_rev_adj=None):
     rt_audience = _to_float(rt_audience)
     rt_critics = _to_float(rt_critics)
     # Tolerate scores entered either as 0-1 (0.94) or 0-100/"94%" - both
@@ -776,13 +785,26 @@ def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=N
         rt_audience *= 100
     if rt_critics is not None and rt_critics <= 1:
         rt_critics *= 100
+    budget_adj = _to_float(budget_adj)
+    dom_rev_adj = _to_float(dom_rev_adj)
+    intl_rev_adj = _to_float(intl_rev_adj)
+    box_office_adj = None
+    if dom_rev_adj is not None or intl_rev_adj is not None:
+        box_office_adj = (dom_rev_adj or 0) + (intl_rev_adj or 0)
     return {
         "genre": (genre or "").strip() or None,
+        "sub_genre": (sub_genre or "").strip() or None,
         "rt_audience": rt_audience,
         "rt_critics": rt_critics,
         "imdb_rating": _to_float(imdb_rating),
         "guest": (guest or "").strip() or None,
         "year": _to_int(year),
+        "runtime": _to_int(runtime),
+        "explosions": _to_int(explosions),
+        "deaths": _to_int(deaths),
+        "animated_chars": _to_int(animated_chars),
+        "budget_adj": budget_adj,
+        "box_office_adj": box_office_adj,
     }
 
 
@@ -819,6 +841,9 @@ def load_film_stats(sheet_url):
                 out[normalize_title(kev_title)] = _film_stats_entry(
                     genre=get(7), rt_audience=get(10), rt_critics=get(11),
                     imdb_rating=get(13), year=get(6),
+                    sub_genre=get(8), runtime=get(9), explosions=get(14),
+                    deaths=get(15), animated_chars=get(16),
+                    budget_adj=get(18), dom_rev_adj=get(21), intl_rev_adj=get(22),
                 )
 
             andy_title = get(26).strip()
@@ -826,6 +851,10 @@ def load_film_stats(sheet_url):
                 out[normalize_title(andy_title)] = _film_stats_entry(
                     genre=get(28), rt_audience=get(31), rt_critics=get(32),
                     imdb_rating=get(34), year=get(27),
+                    sub_genre=get(29), runtime=get(30), explosions=get(35),
+                    deaths=get(36), animated_chars=get(37),
+                    # Andy's block of the sheet doesn't include budget/revenue
+                    # columns, so those stay None for his films.
                 )
         return out
     except Exception as e:
@@ -833,33 +862,47 @@ def load_film_stats(sheet_url):
         return {}
 
 
-def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats):
+def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes=None):
     """Stamps genre/rating data onto each Top Trumps card (matched by title,
     same loose normalize_title match used everywhere else) so the grid can
-    be filtered/sorted client-side without any extra config."""
+    be filtered/sorted client-side without any extra config. Also stamps the
+    matching episode's season (when known) so the Stats page's season
+    toggle can filter the Top Trumps grid the same way it filters charts."""
+    season_by_title = {}
+    if episodes:
+        for ep in episodes:
+            if ep.get("season") is not None:
+                season_by_title[normalize_title(ep["film_title"])] = ep["season"]
     for card in toptrumps_cards:
-        stats = film_stats.get(normalize_title(card["title"]), {})
+        key = normalize_title(card["title"])
+        stats = film_stats.get(key, {})
         card["genre"] = stats.get("genre")
         card["rt_audience"] = stats.get("rt_audience")
         card["imdb_rating"] = stats.get("imdb_rating")
+        card["season"] = season_by_title.get(key)
     return toptrumps_cards
 
 
 def compute_genre_breakdown(episodes):
-    """Counts how many published episodes fall into each genre, for the
-    Stats page's genre chart. Only counts episodes that matched a genre via
-    the film stats sheet - returns [] (chart hidden) until that's wired up."""
+    """Counts how many published episodes fall into each genre, split by
+    season, for the Stats page's genre chart + season toggle. Only counts
+    episodes that matched a genre via the film stats sheet - returns []
+    (chart hidden) until that's wired up."""
     counts = {}
     for ep in episodes:
         genre = ep.get("genre")
         if genre:
-            counts[genre] = counts.get(genre, 0) + 1
-    return [{"genre": g, "count": c} for g, c in sorted(counts.items(), key=lambda x: -x[1])]
+            key = (genre, ep.get("season"))
+            counts[key] = counts.get(key, 0) + 1
+    return [
+        {"genre": g, "count": c, "season": s}
+        for (g, s), c in sorted(counts.items(), key=lambda x: -x[1])
+    ]
 
 
 def compute_critics_vs_audience(episodes):
-    """[{film, critics, audience}, ...] for the critics-vs-audience scatter
-    chart - only episodes with both scores available."""
+    """[{film, critics, audience, season}, ...] for the critics-vs-audience
+    scatter chart - only episodes with both scores available."""
     points = []
     for ep in episodes:
         if ep.get("rt_critics") is not None and ep.get("rt_audience") is not None:
@@ -867,8 +910,23 @@ def compute_critics_vs_audience(episodes):
                 "film": ep["film_title"],
                 "critics": ep["rt_critics"],
                 "audience": ep["rt_audience"],
+                "season": ep.get("season"),
             })
     return points
+
+
+def compute_leaderboard(episodes, field, top_n=10):
+    """[{film, value, season}, ...] sorted highest-first for a numeric field
+    (explosions, deaths, animated_chars, box_office_adj, ...) - powers the
+    Stats page's interactive trivia leaderboard charts. Only includes
+    episodes where that field is actually known."""
+    points = [
+        {"film": ep["film_title"], "value": ep[field], "season": ep.get("season")}
+        for ep in episodes
+        if ep.get(field) is not None
+    ]
+    points.sort(key=lambda p: p["value"], reverse=True)
+    return points[:top_n]
 
 
 # Brand names that .title() would otherwise mangle (e.g. "outout" -> "Outout").
@@ -982,7 +1040,7 @@ def build():
     episodes = fetch_episodes(config.get("rss_url", ""), config.get("omdb_api_key", ""), drinks_snacks, film_stats, film_years)
     episodes = infer_missing_seasons(episodes)
     toptrumps_cards = load_toptrumps_cards()
-    toptrumps_cards = attach_film_stats_to_toptrumps(toptrumps_cards, film_stats)
+    toptrumps_cards = attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes)
     toptrumps_genres = sorted({c["genre"] for c in toptrumps_cards if c.get("genre")})
     episodes = attach_toptrumps_links(episodes, toptrumps_cards)
     seasons = group_by_season(episodes)
@@ -997,9 +1055,19 @@ def build():
     start_here_picks = load_start_here_picks(episodes)
     genre_breakdown = compute_genre_breakdown(episodes)
     critics_vs_audience = compute_critics_vs_audience(episodes)
+    explosions_leaderboard = compute_leaderboard(episodes, "explosions")
+    deaths_leaderboard = compute_leaderboard(episodes, "deaths")
+    box_office_leaderboard = compute_leaderboard(episodes, "box_office_adj")
     episode_genres = sorted({ep["genre"] for ep in episodes if ep.get("genre")})
     episode_guests = sorted({ep["guest"] for ep in episodes if ep.get("guest")})
     episode_years = sorted({ep["year"] for ep in episodes if ep.get("year")}, reverse=True)
+    # Sub-Genres is a comma-separated cell (e.g. "Crime, Drama") rather than
+    # one value per film, so the dropdown lists every individual sub-genre
+    # that appears anywhere, and the client-side filter checks whether the
+    # selected one appears anywhere in an episode's full sub-genre string.
+    episode_subgenres = sorted({
+        s.strip() for ep in episodes for s in (ep.get("sub_genre") or "").split(",") if s.strip()
+    })
     # Lets the "Surprise me" buttons (which pick a title from the original
     # planned lists in titles.json) link straight to the matching episode
     # card if it's been released already, rather than just naming it.
@@ -1026,10 +1094,14 @@ def build():
         "start_here_picks": start_here_picks,
         "genre_breakdown": genre_breakdown,
         "critics_vs_audience": critics_vs_audience,
+        "explosions_leaderboard": explosions_leaderboard,
+        "deaths_leaderboard": deaths_leaderboard,
+        "box_office_leaderboard": box_office_leaderboard,
         "toptrumps_genres": toptrumps_genres,
         "episode_genres": episode_genres,
         "episode_guests": episode_guests,
         "episode_years": episode_years,
+        "episode_subgenres": episode_subgenres,
         "episode_slug_lookup": episode_slug_lookup,
         "year": datetime.now().year,
         "root": "",
