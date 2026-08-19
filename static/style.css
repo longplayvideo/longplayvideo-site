@@ -422,16 +422,28 @@ h3.decade-title {
 
 @media (max-width: 520px) {
   .episode-card { flex-direction: column; }
+  /* object-fit: cover assumes the box roughly matches the source image's
+     aspect ratio - fine at the desktop 92x138 (2:3, same as a standard
+     portrait poster), but this 100%-wide/200px-tall box is landscape-
+     shaped, so a normal portrait poster (e.g. Road House's real 300x450)
+     gets cropped down to a thin horizontal sliver through the middle
+     instead of showing the actual poster art. contain letterboxes
+     instead of cropping - the existing placeholder background (see
+     .episode-card .cover above) fills the resulting empty space, and it
+     no longer matters whether a given episode's art is portrait or
+     landscape (Start Here mixes both). */
   .episode-card .cover { width: 100%; height: 200px; }
-  /* .start-here-grid's minmax(340px, 1fr) columns (below) don't shrink
-     below 340px even in a narrower container - grid holds that minimum
-     and lets the page overflow sideways instead, which is what was
-     pushing the whole Start Here page right and blowing up each card
-     (and its cover, sized off the card) past the actual viewport width.
-     A single full-width column here matches how the Episodes page's own
-     list already stacks on mobile. */
-  .start-here-grid { grid-template-columns: 1fr; }
+  .episode-card .cover img { object-fit: contain; }
 }
+/* Grid items default to min-width: auto, which lets a child's intrinsic
+   content width (a row of badge-like links, an unbroken word, etc.)
+   override the grid track's own width instead of being constrained to
+   it - here that let each card sit a few px wider than its single-
+   column track and spill off one side rather than the other, reading as
+   the whole card being shifted sideways even though nothing was
+   actually scrolling off the page. Applies at all widths, not just the
+   mobile breakpoint above, since it's the correct sizing regardless. */
+.start-here-grid .episode-card { min-width: 0; }
 
 /* --- Episodes page controls: filters, search, back-to-top --- */
 .episode-controls {
@@ -790,6 +802,21 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   margin-top: 24px;
 }
 .start-here-grid .episode-card { margin-bottom: 0; }
+@media (max-width: 520px) {
+  /* Has to come after the unconditional .start-here-grid rule above,
+     not just be wrapped in a media query - same specificity (one class
+     each), so source order decides the tie regardless of which one's
+     condition is true, and a copy of this placed earlier in the
+     stylesheet (e.g. up with .episode-card's own mobile rules) lost to
+     this one every time even on screens narrow enough to trigger it.
+     minmax(340px, 1fr) doesn't shrink below 340px in a narrower
+     container - grid holds that minimum and lets the card spill past
+     its own track's edge instead, which read as the whole card being
+     shifted sideways even with no actual page scroll happening. A
+     single full-width column here matches how the Episodes page's own
+     list already stacks on mobile. */
+  .start-here-grid { grid-template-columns: 1fr; }
+}
 .coming-soon-badge {
   display: inline-block;
   background: var(--coral);
