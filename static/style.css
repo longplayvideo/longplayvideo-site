@@ -622,6 +622,7 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   margin-top: 24px;
 }
 .showcase-card {
+  position: relative;
   border-radius: 14px;
   overflow: hidden;
   border: 2px solid rgba(232,180,82,0.3);
@@ -631,6 +632,18 @@ select.episode-search { max-width: 220px; cursor: pointer; }
    a tall aspect ratio with object-fit: cover so the product photo fills
    and zooms to the frame instead of shrinking to fit with letterboxing. */
 .showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; background: rgba(232,180,82,0.08); }
+/* Products with a "-back" image (see load_shop_items) crossfade to it on
+   hover/tap - e.g. showing a tee's back print, or the other side of a
+   stubby holder. Products with just one image are unaffected. */
+.showcase-card.has-back { cursor: pointer; }
+.showcase-card.has-back .shop-back {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.showcase-card.has-back:hover .shop-back,
+.showcase-card.has-back:focus-within .shop-back { opacity: 1; }
 
 /* Start Here page - full episode-cards (cover + title + summary + links)
    need a lot more room than .showcase-grid's square-image columns
