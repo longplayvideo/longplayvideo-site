@@ -131,6 +131,25 @@ automatically in the Shop page's showcase gallery - same folder-drop
 pattern as Top Trumps cards. The filename becomes the title (e.g.
 `tote-bag.jpg` → "Tote Bag").
 
+- **To replace an existing product photo**: just re-upload a file with the
+  exact same filename via GitHub's "Add file → Upload files" - it'll
+  detect the name match and offer to overwrite it.
+- **To add a new product**: upload a new image with a new filename.
+- **To remove a product**: delete its file from `static/shop/` in GitHub.
+- **Category**: guessed automatically from the filename ending -
+  `-tee` or `-hoodie` → Clothing, `-cap` → Headwear, anything else →
+  Accessories & Extras (e.g. `logo-tee.jpg`, `season1-cap.jpg`).
+- **Sizing**: images are cropped to the same tall card shape as the Top
+  Trumps cards and zoomed to fill the frame (`object-fit: cover`), so a
+  roughly portrait-oriented photo (about 2:3, same as a trading card)
+  will look best - very wide or very square photos will get cropped at
+  the sides/top-bottom to fit.
+- **Front/back hover**: add a second image named `<same-name>-back.<ext>`
+  (e.g. `stubby-holders.png` + `stubby-holders-back.png`) and hovering
+  the card crossfades to it - handy for a tee's back print or the other
+  side of an item. Optional, and only affects devices with a mouse -
+  touch/mobile just shows the front image, there's no tap-to-flip yet.
+
 ## Top Trumps auto-linking
 
 Episode cards automatically get a "Top Trumps" button whenever a card in
