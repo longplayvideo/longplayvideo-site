@@ -4,11 +4,12 @@ on:
   push:
     branches: [main]
   schedule:
+    # Runs daily at 22:00 UTC (~9am AEST) to pick up new episodes automatically.
     - cron: "0 22 * * *"
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -29,6 +30,23 @@ jobs:
       - run: pip install -r requirements.txt
 
       - run: python generate_site.py
+
+      # Cover art (fetched from OMDb) is cached to cover_cache.json so a
+      # poster, once found, is never re-fetched on future builds - without
+      # this, every rebuild re-queried all ~145 films from scratch, which
+      # is what exhausted OMDb's free 1,000-lookups/day quota and made
+      # every cover on the site disappear at once. Commit the cache back to
+      # the repo (if it changed) so it actually persists between runs -
+      # otherwise it'd just be thrown away with the rest of this runner.
+      - name: Persist cover art cache
+        run: |
+          if [ -n "$(git status --porcelain cover_cache.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add cover_cache.json
+            git commit -m "Update cover art cache [skip ci]"
+            git push
+          fi
 
       - uses: actions/upload-pages-artifact@v3
         with:
