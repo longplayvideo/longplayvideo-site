@@ -87,7 +87,7 @@ def strip_html(text):
 
 
 def load_config():
-    with open(os.path.join(ROOT, "config.json")) as f:
+    with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -149,7 +149,7 @@ def load_film_years():
     if not os.path.exists(FILM_YEARS_PATH):
         return {}
     try:
-        with open(FILM_YEARS_PATH) as f:
+        with open(FILM_YEARS_PATH, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -197,7 +197,7 @@ def load_cover_cache():
     if not os.path.exists(COVER_CACHE_PATH):
         return {}
     try:
-        with open(COVER_CACHE_PATH) as f:
+        with open(COVER_CACHE_PATH, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -209,7 +209,7 @@ def save_cover_cache(cache):
     # build (cheap, since almost everything else is already cached) rather
     # than being stuck with no cover forever because of a transient failure.
     persistable = {title: result for title, result in cache.items() if result.get("poster")}
-    with open(COVER_CACHE_PATH, "w") as f:
+    with open(COVER_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(persistable, f, indent=2, sort_keys=True)
 
 
@@ -567,7 +567,7 @@ def load_titles():
     path = os.path.join(ROOT, "titles.json")
     if not os.path.exists(path):
         return {"kev": [], "andy": []}
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -862,6 +862,69 @@ def load_film_stats(sheet_url):
         return {}
 
 
+def load_toptrumps_stats(sheet_url):
+    """
+    Reads the "Top Trumps (update)" tab of the Podcast S2 sheet, published
+    to web as CSV - one row per film across both seasons together (unlike
+    the Stats tab's two-side-by-side-blocks layout), with the four numeric
+    ratings that power the Top Trumps head-to-head radar chart on the Stats
+    page: Rewatch, Romance, Action and Soundtrack (all out of 100).
+
+    Column F is headed "Statham" in the sheet itself (an in-joke - Jason
+    Statham as the site's mascot for action), read here into the "action"
+    key and always labelled "Action" in the UI, since visitors won't have
+    the context for the joke.
+
+    Also carries "quote" (column H, "Line") along where it's filled in -
+    it can't be a fifth radar axis (it's a line of dialogue, not a
+    magnitude), so the front end shows it as flavour text under the chart
+    instead.
+
+    A film only makes it into the radar chart's film pickers if all four
+    numeric ratings are present - a partially-filled row (common while
+    this sheet is still being backfilled) would draw a lopsided, slightly
+    misleading shape, so it's left out entirely rather than shown with
+    gaps treated as zero.
+
+    Returns {} until a real toptrumps_stats_sheet_url is set in
+    config.json - the radar chart just doesn't render until then.
+    """
+    if not sheet_url or "PASTE_" in sheet_url or not requests:
+        return {}
+    try:
+        resp = requests.get(sheet_url, timeout=8)
+        resp.raise_for_status()
+        import csv
+        import io
+        rows = list(csv.reader(io.StringIO(resp.text)))
+        out = {}
+        for row in rows[1:]:  # skip the header row
+            if len(row) < 2:
+                continue
+            get = lambda i: row[i] if i < len(row) else ""
+            title = get(1).strip()
+            if not title:
+                continue
+            rewatch = _to_int(get(3))
+            romance = _to_int(get(4))
+            action = _to_int(get(5))
+            soundtrack = _to_int(get(6))
+            if None in (rewatch, romance, action, soundtrack):
+                continue
+            out[normalize_title(title)] = {
+                "title": title,
+                "rewatch": rewatch,
+                "romance": romance,
+                "action": action,
+                "soundtrack": soundtrack,
+                "quote": get(7).strip() or None,
+            }
+        return out
+    except Exception as e:
+        print(f"  Top Trumps stats sheet fetch failed: {e}")
+        return {}
+
+
 def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes=None):
     """Stamps genre/rating data onto each Top Trumps card (matched by title,
     same loose normalize_title match used everywhere else) so the grid can
@@ -901,8 +964,11 @@ def compute_genre_breakdown(episodes):
 
 
 def compute_critics_vs_audience(episodes):
-    """[{film, critics, audience, season}, ...] for the critics-vs-audience
-    scatter chart - only episodes with both scores available."""
+    """[{film, critics, audience, season, genre, toptrumps_slug}, ...] for the
+    critics-vs-audience scatter chart - only episodes with both scores
+    available. genre/toptrumps_slug are along for the ride so the Stats page
+    can click-filter this chart by genre and show each point's Top Trumps
+    card in its hover tooltip, without a second lookup."""
     points = []
     for ep in episodes:
         if ep.get("rt_critics") is not None and ep.get("rt_audience") is not None:
@@ -911,22 +977,31 @@ def compute_critics_vs_audience(episodes):
                 "critics": ep["rt_critics"],
                 "audience": ep["rt_audience"],
                 "season": ep.get("season"),
+                "genre": ep.get("genre"),
+                "toptrumps_slug": ep.get("toptrumps_slug"),
             })
     return points
 
 
-def compute_leaderboard(episodes, field, top_n=10):
-    """[{film, value, season}, ...] sorted highest-first for a numeric field
-    (explosions, deaths, animated_chars, box_office_adj, ...) - powers the
-    Stats page's interactive trivia leaderboard charts. Only includes
-    episodes where that field is actually known."""
+def compute_leaderboard(episodes, field):
+    """[{film, value, season, genre}, ...] sorted highest-first for a numeric
+    field (explosions, deaths, animated_chars, box_office_adj, ...) - powers
+    the Stats page's interactive trivia leaderboard charts. Only includes
+    episodes where that field is actually known.
+
+    Deliberately returns the FULL sorted list rather than truncating to a
+    top N here - the Stats page slices out the top 10 or bottom 10 client
+    side depending on the season/genre filter and the "Reverse Order"
+    toggle, and it needs the low end of the list on hand to do that (e.g.
+    "least explosive" or "biggest box-office flops"), not just the top 10
+    with the truncated tail unavailable."""
     points = [
-        {"film": ep["film_title"], "value": ep[field], "season": ep.get("season")}
+        {"film": ep["film_title"], "value": ep[field], "season": ep.get("season"), "genre": ep.get("genre")}
         for ep in episodes
         if ep.get(field) is not None
     ]
     points.sort(key=lambda p: p["value"], reverse=True)
-    return points[:top_n]
+    return points
 
 
 # Brand names that .title() would otherwise mangle (e.g. "outout" -> "Outout").
@@ -1058,6 +1133,11 @@ def build():
     explosions_leaderboard = compute_leaderboard(episodes, "explosions")
     deaths_leaderboard = compute_leaderboard(episodes, "deaths")
     box_office_leaderboard = compute_leaderboard(episodes, "box_office_adj")
+    toptrumps_stats = load_toptrumps_stats(config.get("toptrumps_stats_sheet_url", ""))
+    # Sorted alphabetically so the two Top Trumps radar dropdowns are easy
+    # to scan - only films with a complete set of four ratings are in here
+    # at all (see load_toptrumps_stats), so no extra filtering needed here.
+    radar_films = sorted(toptrumps_stats.values(), key=lambda d: d["title"].lower())
     episode_genres = sorted({ep["genre"] for ep in episodes if ep.get("genre")})
     episode_guests = sorted({ep["guest"] for ep in episodes if ep.get("guest")})
     episode_years = sorted({ep["year"] for ep in episodes if ep.get("year")}, reverse=True)
@@ -1097,6 +1177,7 @@ def build():
         "explosions_leaderboard": explosions_leaderboard,
         "deaths_leaderboard": deaths_leaderboard,
         "box_office_leaderboard": box_office_leaderboard,
+        "radar_films": radar_films,
         "toptrumps_genres": toptrumps_genres,
         "episode_genres": episode_genres,
         "episode_guests": episode_guests,
@@ -1113,7 +1194,11 @@ def build():
     ]
     for page in pages:
         template = env.get_template(page)
-        with open(os.path.join(OUT, page), "w") as f:
+        # encoding="utf-8" is required here on Windows - without it, open()
+        # falls back to the system codepage (cp1252), which can't encode
+        # the drink/glass emoji now flowing through the Drinks & Snacks
+        # sheet and crashes the build the moment any page renders one.
+        with open(os.path.join(OUT, page), "w", encoding="utf-8") as f:
             f.write(template.render(**common))
 
     print(f"Built {len(pages)} pages with {len(episodes)} episodes into {OUT}/")

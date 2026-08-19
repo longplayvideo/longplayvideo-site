@@ -603,6 +603,102 @@ select.episode-search option {
   text-align: center;
 }
 
+/* Chart.js sizes each canvas from its parent's box the moment it's
+   constructed - and .chart-card had no fixed height, so if a chart is
+   built while its tab is still display:none (true for every chart on
+   this page on first load, since Top Trumps is the default active tab),
+   the parent collapses to just the height of the <h4>, Chart.js measures
+   that as "0px available", and it's stuck there even after the tab
+   becomes visible and .resize() is called (see stats.html's panel click
+   handler) - Chart.js's own measurement briefly discounts the canvas
+   itself while sizing (to avoid a canvas-sizes-its-own-container loop),
+   so a min-height/min-width on the canvas doesn't help; the *parent*
+   needs a floor that doesn't depend on the canvas's current size at all. */
+.chart-card { min-height: 300px; }
+
+/* Top Trumps head-to-head radar (Top Trumps tab) - the two film pickers
+   and the optional quote line underneath the chart. */
+.radar-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.radar-picker select { flex: 1 1 180px; max-width: 260px; }
+.radar-vs {
+  color: var(--gold-light);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+}
+.radar-quotes {
+  margin: 14px 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--cream);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Leaderboard header row (title + Reverse Order button) - falls back to a
+   stacked layout on narrow screens rather than squashing the button. */
+.chart-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.chart-card-head h4 { margin: 0; text-align: left; }
+.reverse-btn.active { background: var(--coral); color: var(--red-dark); border-color: var(--coral); }
+
+/* Active genre-filter indicator above the doughnut chart, shown once a
+   slice has been clicked (see stats.html's updateGenreChip()). */
+.genre-filter-chip {
+  text-align: center;
+  color: var(--gold-light);
+  font-size: 0.85rem;
+  margin: -6px 0 12px;
+}
+.genre-filter-chip a { color: var(--coral); text-decoration: underline; }
+
+/* Custom HTML tooltip for the Critics vs Audience scatter chart, replacing
+   Chart.js's canvas-drawn tooltip so it can show a real <img> of the film's
+   Top Trumps card (see externalTooltipHandler() in stats.html). Positioned
+   absolutely within the chart-card, which is given position:relative by
+   the same JS the first time this tooltip is created. */
+.chartjs-tooltip {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 14px));
+  background: var(--purple-dark);
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  z-index: 5;
+  max-width: 220px;
+}
+.chartjs-tooltip img {
+  width: 54px;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  display: block;
+  flex-shrink: 0;
+}
+.tt-tooltip-body { display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; color: var(--cream); }
+.tt-tooltip-body strong { color: var(--gold-light); font-size: 0.82rem; }
+
 /* Search/filter controls shared by the Top Trumps, Drinks and Snacks
    panels - reuses .episode-search's look (see Episodes page controls)
    so every searchable list on the site feels consistent. */
