@@ -68,15 +68,6 @@
       <button type="button" class="toggle-btn" data-season="2">Season 2</button>
     </div>
     {% endif %}
-    {% if genre_breakdown %}
-    <div class="chart-card">
-      <h4>Genre Breakdown</h4>
-      <p class="genre-filter-chip" id="genre-filter-chip" style="display:none;"></p>
-      <canvas id="genre-chart" height="240"></canvas>
-    </div>
-    {% else %}
-    <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
-    {% endif %}
     {% if critics_vs_audience %}
     <div class="chart-card">
       <h4>Critics vs Audience</h4>
@@ -87,10 +78,7 @@
     {% endif %}
     {% if explosions_leaderboard %}
     <div class="chart-card">
-      <div class="chart-card-head">
-        <h4>Most Explosive Films</h4>
-        <button type="button" class="btn btn-small btn-ghost reverse-btn" data-chart="explosions-chart">Reverse Order</button>
-      </div>
+      <h4>Most Explosive Films</h4>
       <canvas id="explosions-chart" height="240"></canvas>
     </div>
     {% else %}
@@ -98,10 +86,7 @@
     {% endif %}
     {% if deaths_leaderboard %}
     <div class="chart-card">
-      <div class="chart-card-head">
-        <h4>Highest Body Count</h4>
-        <button type="button" class="btn btn-small btn-ghost reverse-btn" data-chart="deaths-chart">Reverse Order</button>
-      </div>
+      <h4>Highest Body Count</h4>
       <canvas id="deaths-chart" height="240"></canvas>
     </div>
     {% endif %}
@@ -109,10 +94,23 @@
     <div class="chart-card">
       <div class="chart-card-head">
         <h4>Biggest Box Office (Inflation-Adjusted)</h4>
-        <button type="button" class="btn btn-small btn-ghost reverse-btn" data-chart="boxoffice-chart">Reverse Order</button>
+        <div class="boxoffice-toggle">
+          <button type="button" class="btn btn-small boxoffice-metric-btn active" data-metric="value">Total</button>
+          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="dom">Domestic</button>
+          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="intl">International</button>
+        </div>
       </div>
       <canvas id="boxoffice-chart" height="240"></canvas>
     </div>
+    {% endif %}
+    {% if genre_breakdown %}
+    <div class="chart-card">
+      <h4>Genre Breakdown</h4>
+      <p class="genre-filter-chip" id="genre-filter-chip" style="display:none;"></p>
+      <canvas id="genre-chart" height="240"></canvas>
+    </div>
+    {% else %}
+    <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
     {% endif %}
     {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
       <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
@@ -384,7 +382,7 @@
     }
 
     var charts = {}; // keyed by canvas id, created once then updated in place
-    var state = { season: "all", genre: null, reversed: {} };
+    var state = { season: "all", genre: null, boxOfficeMetric: "value" };
 
     function bySeason(list) {
       if (state.season === "all") return list;
@@ -443,6 +441,7 @@
         type: "doughnut",
         data: { labels: d.labels, datasets: [{ data: d.values, backgroundColor: d.colors, borderColor: "#1c1230", borderWidth: 2 }] },
         options: {
+          cutout: "25%",
           plugins: {
             legend: { position: "bottom", labels: { color: "#fdf6ec", boxWidth: 14, padding: 12 } },
             tooltip: { callbacks: { label: function (ctx) { return ctx.label + ": " + ctx.raw + " episode" + (ctx.raw === 1 ? "" : "s"); } } },
@@ -508,35 +507,32 @@
             tooltip: { enabled: false, position: "nearest", external: externalTooltipHandler },
           },
           scales: {
-            x: { title: { display: true, text: "Critics %", color: "#fdf6ec" }, min: 0, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
-            y: { title: { display: true, text: "Audience %", color: "#fdf6ec" }, min: 0, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            // Every film so far scores 29+ on both axes, so 0-25 is dead
+            // space that just squashes the interesting part of the chart
+            // into its top-right corner - starting at 25 gives the real
+            // spread of points room to breathe. Not hardcoded lower than
+            // that on purpose: if a future film ever scores below 25 on
+            // either axis, it should visibly show up clipped/at the edge
+            // as a prompt to raise this again, rather than being silently
+            // excluded by a tighter floor.
+            x: { title: { display: true, text: "Critics %", color: "#fdf6ec" }, min: 25, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            y: { title: { display: true, text: "Audience %", color: "#fdf6ec" }, min: 25, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
           },
         },
       });
     }
 
-    // ---------- Leaderboards - full sorted lists in, top/bottom 10 sliced client-side ----------
-    function leaderboardSlice(data, key) {
-      var list = applyFilters(data);
-      return state.reversed[key] ? list.slice(-10).reverse() : list.slice(0, 10);
+    // ---------- Leaderboards - full sorted lists in, top 10 sliced client-side ----------
+    function leaderboardSlice(data) {
+      return applyFilters(data).slice(0, 10);
     }
 
-    function toggleHeading(canvasId, reversed) {
-      var card = document.getElementById(canvasId).closest(".chart-card");
-      var h4 = card.querySelector("h4");
-      if (!h4.dataset.original) h4.dataset.original = h4.textContent;
-      h4.textContent = reversed
-        ? h4.dataset.original.replace("Most", "Least").replace("Highest", "Lowest").replace("Biggest", "Smallest")
-        : h4.dataset.original;
-    }
-
-    function renderLeaderboard(canvasId, data, key, color, valueLabel, formatValue) {
+    function renderLeaderboard(canvasId, data, color, valueLabel, formatValue) {
       var canvas = document.getElementById(canvasId);
       if (!canvas) return;
-      var slice = leaderboardSlice(data, key);
+      var slice = leaderboardSlice(data);
       var labels = slice.map(function (d) { return d.film; });
       var values = slice.map(function (d) { return d.value; });
-      toggleHeading(canvasId, !!state.reversed[key]);
       if (charts[canvasId]) {
         charts[canvasId].data.labels = labels;
         charts[canvasId].data.datasets[0].data = values;
@@ -561,12 +557,52 @@
       });
     }
 
+    // ---------- Box office - Total/Domestic/International toggle ----------
+    var BOXOFFICE_METRIC_LABELS = { value: "Total Box Office", dom: "Domestic Box Office", intl: "International Box Office" };
+
+    function renderBoxOfficeChart() {
+      var canvas = document.getElementById("boxoffice-chart");
+      if (!canvas) return;
+      var metric = state.boxOfficeMetric;
+      var slice = applyFilters(boxOfficeData)
+        .slice()
+        .sort(function (a, b) { return b[metric] - a[metric]; })
+        .slice(0, 10);
+      var labels = slice.map(function (d) { return d.film; });
+      var values = slice.map(function (d) { return d[metric]; });
+      var label = BOXOFFICE_METRIC_LABELS[metric];
+      if (charts["boxoffice-chart"]) {
+        var chart = charts["boxoffice-chart"];
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.data.datasets[0].label = label;
+        chart.update();
+        return;
+      }
+      charts["boxoffice-chart"] = new Chart(canvas, {
+        type: "bar",
+        data: { labels: labels, datasets: [{ label: label, data: values, backgroundColor: "#e8b452" }] },
+        options: {
+          indexAxis: "y",
+          animation: { duration: 600, easing: "easeOutQuart" },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (ctx) { return "$" + Math.round(ctx.raw) + "m"; } } },
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            y: { ticks: { color: "#fdf6ec" }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
     function renderAll() {
       renderGenreChart();
       renderCriticsAudienceChart();
-      renderLeaderboard("explosions-chart", explosionsData, "explosions", "#ff6f5c", "Explosions", function (v) { return v; });
-      renderLeaderboard("deaths-chart", deathsData, "deaths", "#3fb6b0", "Deaths", function (v) { return v; });
-      renderLeaderboard("boxoffice-chart", boxOfficeData, "boxoffice", "#e8b452", "Box Office", function (v) { return "$" + Math.round(v) + "m"; });
+      renderLeaderboard("explosions-chart", explosionsData, "#ff6f5c", "Explosions", function (v) { return v; });
+      renderLeaderboard("deaths-chart", deathsData, "#3fb6b0", "Deaths", function (v) { return v; });
+      renderBoxOfficeChart();
     }
 
     var statsRendered = false;
@@ -594,15 +630,18 @@
       });
     });
 
-    var reverseBtns = document.querySelectorAll(".reverse-btn[data-chart]");
-    reverseBtns.forEach(function (btn) {
-      var key = btn.dataset.chart === "explosions-chart" ? "explosions"
-        : btn.dataset.chart === "deaths-chart" ? "deaths" : "boxoffice";
+    var boxOfficeBtns = document.querySelectorAll(".boxoffice-metric-btn[data-metric]");
+    boxOfficeBtns.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        state.reversed[key] = !state.reversed[key];
-        btn.classList.toggle("active", state.reversed[key]);
-        btn.textContent = state.reversed[key] ? "Show Highest First" : "Reverse Order";
-        renderAll();
+        if (btn.dataset.metric === state.boxOfficeMetric) return;
+        boxOfficeBtns.forEach(function (b) {
+          b.classList.remove("active");
+          b.classList.add("btn-ghost");
+        });
+        btn.classList.add("active");
+        btn.classList.remove("btn-ghost");
+        state.boxOfficeMetric = btn.dataset.metric;
+        renderBoxOfficeChart();
       });
     });
   }

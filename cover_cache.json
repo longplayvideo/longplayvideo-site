@@ -123,6 +123,10 @@
     "imdb_id": "tt0470752",
     "poster": "https://m.media-amazon.com/images/M/MV5BMTUxNzc0OTIxMV5BMl5BanBnXkFtZTgwNDI3NzU2NDE@._V1_SX300.jpg"
   },
+  "Ferris Bueller's Day Off": {
+    "imdb_id": "tt0091042",
+    "poster": "https://m.media-amazon.com/images/M/MV5BZWYwMjUxNjMtMzE0MC00NDM3LWIxMmQtYmEyNWVjNjdlZGZjXkEyXkFqcGc@._V1_SX300.jpg"
+  },
   "Ferris Bueller's Day Off|1986": {
     "imdb_id": "tt0091042",
     "poster": "https://m.media-amazon.com/images/M/MV5BZWYwMjUxNjMtMzE0MC00NDM3LWIxMmQtYmEyNWVjNjdlZGZjXkEyXkFqcGc@._V1_SX300.jpg"
@@ -190,6 +194,10 @@
   "In Bruges|2008": {
     "imdb_id": "tt0780536",
     "poster": "https://m.media-amazon.com/images/M/MV5BNjliZjBlNDItOWUyZC00ZTExLTg5NmUtNzE5ZmQyZWVmZmE5XkEyXkFqcGc@._V1_SX300.jpg"
+  },
+  "Indiana Jones & the Last Crusade": {
+    "imdb_id": "tt0097576",
+    "poster": "https://m.media-amazon.com/images/M/MV5BNGIxNzQ0YzYtMjNmYi00YjBlLWFjNzEtNGE3ZGFmYTczM2MwXkEyXkFqcGc@._V1_SX300.jpg"
   },
   "Indiana Jones & the Last Crusade|1989": {
     "imdb_id": "tt0097576",
@@ -263,6 +271,10 @@
     "imdb_id": "tt1242545",
     "poster": "https://m.media-amazon.com/images/M/MV5BNjk1Mjk1NDk4NF5BMl5BanBnXkFtZTcwMDg1MDczMw@@._V1_SX300.jpg"
   },
+  "Lord Of The Rings: The Return Of The King": {
+    "imdb_id": "tt0167260",
+    "poster": "https://m.media-amazon.com/images/M/MV5BMTZkMjBjNWMtZGI5OC00MGU0LTk4ZTItODg2NWM3NTVmNWQ4XkEyXkFqcGc@._V1_QL75_UX380_CR0,0,380,562_.jpg"
+  },
   "Lord Of The Rings: The Return Of The King|2003": {
     "imdb_id": "tt0167260",
     "poster": "https://m.media-amazon.com/images/M/MV5BMTZkMjBjNWMtZGI5OC00MGU0LTk4ZTItODg2NWM3NTVmNWQ4XkEyXkFqcGc@._V1_QL75_UX380_CR0,0,380,562_.jpg"
@@ -303,9 +315,17 @@
     "imdb_id": "tt31064841",
     "poster": "https://m.media-amazon.com/images/M/MV5BMjUxMjE2YWQtY2YwMS00MTdkLTg0ZWQtMTQ0NzExY2U4NGZkXkEyXkFqcGc@._V1_SX300.jpg"
   },
+  "Pirates of the Caribbean: The Curse of the Black Pearl": {
+    "imdb_id": "tt0325980",
+    "poster": "https://m.media-amazon.com/images/M/MV5BNDhlMzEyNzItMTA5Mi00YWRhLThlNTktYTQyMTA0MDIyNDEyXkEyXkFqcGc@._V1_QL75_UX380_CR0,2,380,562_.jpg"
+  },
   "Pirates of the Caribbean: The Curse of the Black Pearl|2003": {
     "imdb_id": "tt0325980",
     "poster": "https://m.media-amazon.com/images/M/MV5BNDhlMzEyNzItMTA5Mi00YWRhLThlNTktYTQyMTA0MDIyNDEyXkEyXkFqcGc@._V1_QL75_UX380_CR0,2,380,562_.jpg"
+  },
+  "Planes, Trains, and Automobiles|1987": {
+    "imdb_id": "tt15838022",
+    "poster": "https://m.media-amazon.com/images/M/MV5BMDgzZTNhOWUtNGRmZi00Mjg3LTlmMmMtMjkyZjJmMmVmNGIzXkEyXkFqcGdeQXVyNzYzMTgwMw@@._V1_SX300.jpg"
   },
   "Point Break|1991": {
     "imdb_id": "tt0102685",
@@ -351,6 +371,14 @@
     "imdb_id": "tt0108174",
     "poster": "https://m.media-amazon.com/images/M/MV5BMDNiMzA1MzEtMDQwOC00NTkzLTgyMWEtNzk0YjNkZmY5MDIwXkEyXkFqcGc@._V1_SX300.jpg"
   },
+  "Spirited Away|2001": {
+    "imdb_id": "tt0245429",
+    "poster": "https://m.media-amazon.com/images/M/MV5BNTEyNmEwOWUtYzkyOC00ZTQ4LTllZmUtMjk0Y2YwOGUzYjRiXkEyXkFqcGc@._V1_QL75_UX380_CR0,0,380,562_.jpg"
+  },
+  "Spy Game|2005": {
+    "imdb_id": "tt0266987",
+    "poster": "https://m.media-amazon.com/images/M/MV5BYTljZmI1MjctMWJmMC00ZjJmLTkwNzUtNGQxNWJhZGRjMjM3XkEyXkFqcGc@._V1_SX300.jpg"
+  },
   "Star Wars|1977": {
     "imdb_id": "tt0076759",
     "poster": "https://m.media-amazon.com/images/M/MV5BOGUwMDk0Y2MtNjBlNi00NmRiLTk2MWYtMGMyMDlhYmI4ZDBjXkEyXkFqcGc@._V1_SX300.jpg"
@@ -390,6 +418,10 @@
   "The Burbs|1989": {
     "imdb_id": "tt0096734",
     "poster": "https://m.media-amazon.com/images/M/MV5BNzAzYWE2NzYtMTMzNy00MmQzLTllMWItODA3ODk4MDg5MmY0XkEyXkFqcGc@._V1_SX300.jpg"
+  },
+  "The Colour of Money|1986": {
+    "imdb_id": "tt1763975",
+    "poster": "https://m.media-amazon.com/images/M/MV5BZTJiNTQ5MmItYTI1MC00NTM3LTk4MmEtODMzOTkwMGRlMjA3XkEyXkFqcGdeQXVyMTEzMDU3MDA0._V1_SX300.jpg"
   },
   "The Crow|1994": {
     "imdb_id": "tt0109506",
@@ -434,6 +466,10 @@
   "The Mask|1994": {
     "imdb_id": "tt0110475",
     "poster": "https://m.media-amazon.com/images/M/MV5BNGNmNjI0ZmMtMzI5MC00ZjUyLWFlZDEtYjUyMGZlN2E3N2E2XkEyXkFqcGc@._V1_SX300.jpg"
+  },
+  "The Matrix": {
+    "imdb_id": "tt0133093",
+    "poster": "https://m.media-amazon.com/images/M/MV5BN2NmN2VhMTQtMDNiOS00NDlhLTliMjgtODE2ZTY0ODQyNDRhXkEyXkFqcGc@._V1_QL75_UX380_CR0,4,380,562_.jpg"
   },
   "The Matrix|1999": {
     "imdb_id": "tt0133093",

@@ -67,12 +67,12 @@ header.site-header .brand img {
 }
 
 nav.site-nav a {
-  color: var(--cream);
+  color: var(--gold-light);
   margin-left: 15px;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 1.3rem;
 }
-nav.site-nav a:hover { color: var(--gold-light); text-decoration: none; }
+nav.site-nav a:hover { color: var(--gold); text-decoration: none; }
 
 .nav-toggle {
   display: none;
@@ -86,10 +86,11 @@ nav.site-nav a:hover { color: var(--gold-light); text-decoration: none; }
   cursor: pointer;
 }
 
-/* Below ~860px, seven nav links stop fitting the header on one line and
-   just wrap messily under the sticky bar, eating vertical space on every
-   page. Collapse them behind a hamburger button instead. */
-@media (max-width: 860px) {
+/* Below ~1150px, seven nav links (now sized to match the brand text -
+   see nav.site-nav a above) stop fitting the header on one line and just
+   wrap messily under the sticky bar, eating vertical space on every page.
+   Collapse them behind a hamburger button instead. */
+@media (max-width: 1150px) {
   .nav-toggle { display: block; }
   nav.site-nav {
     display: none;
@@ -665,7 +666,8 @@ select.episode-search option {
   margin-bottom: 14px;
 }
 .chart-card-head h4 { margin: 0; text-align: left; }
-.reverse-btn.active { background: var(--coral); color: var(--red-dark); border-color: var(--coral); }
+.boxoffice-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+.boxoffice-metric-btn { white-space: nowrap; }
 
 /* Active genre-filter indicator above the doughnut chart, shown once a
    slice has been clicked (see stats.html's updateGenreChip()). */

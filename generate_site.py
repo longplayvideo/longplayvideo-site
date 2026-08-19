@@ -157,20 +157,32 @@ def load_film_years():
 
 def lookup_film_year(film_title, film_years):
     """
-    Same exact -> substring -> fuzzy fallback as resolve_surprise_titles,
-    since the hosts' spreadsheet title and the Spotify episode's parsed
-    film_title don't always match exactly (e.g. "Running Man" in the
-    spreadsheet vs the episode's actual "The Running Man").
+    Exact -> fuzzy fallback, since the hosts' spreadsheet title and the
+    Spotify episode's parsed film_title don't always match exactly (e.g.
+    "Running Man" in the spreadsheet vs the episode's actual "The Running
+    Man" - the fuzzy pass's length-aware ratio handles that case fine on
+    its own, no separate containment pass needed).
+
+    This used to have a middle "containment" pass (does one normalized
+    title contain the other as a raw substring), matching
+    resolve_surprise_titles' three-pass structure - but film_years.json's
+    keys are pre-normalized to one alphanumeric blob with no word
+    boundaries left to check, so unlike resolve_surprise_titles this
+    couldn't be fixed to require whole-word containment, only removed.
+    It's what let the short, real, unrelated title "Once" collide with
+    "Everything, Everywhere, All At Once" over in resolve_surprise_titles;
+    the equivalent risk here is a short film title's normalized text
+    coincidentally appearing inside a longer, different film's, silently
+    handing back the wrong year and - via fetch_cover's year filter - the
+    wrong poster/IMDb link. Dropping it in favour of the ratio-based fuzzy
+    pass (which naturally penalises exactly this kind of length mismatch,
+    unlike a raw substring check) removes that risk.
     """
     key = normalize_title(film_title)
     if not key or not film_years:
         return None
     if key in film_years:
         return film_years[key]
-    contains = [(k, v) for k, v in film_years.items() if key in k or k in key]
-    if contains:
-        contains.sort(key=lambda pair: abs(len(pair[0]) - len(key)))
-        return contains[0][1]
     best_year, best_ratio = None, 0.0
     for k, v in film_years.items():
         ratio = difflib.SequenceMatcher(None, key, k).ratio()
@@ -262,6 +274,20 @@ def fetch_cover(film_title, api_key, cache, year=None):
                     search_data = search_resp.json()
                     if search_data.get("Response") == "True" and search_data.get("Search"):
                         data = search_data["Search"][0]
+                    elif year:
+                        # Both year-qualified attempts came up empty - year_hint (from
+                        # film_years.json) can legitimately disagree with OMDb's own
+                        # year for a title (e.g. a film's overseas festival/theatrical
+                        # release year vs. the US release OMDb tracks - "Spirited
+                        # Away" is 2001 by one and 2003 by the other), and OMDb's `y`
+                        # filter is strict enough that a one-or-two-year mismatch
+                        # returns nothing at all rather than the closest match. One
+                        # last unqualified search is safer than showing no cover for
+                        # a real, findable film over a year filter being slightly off.
+                        retry_resp = requests.get("https://www.omdbapi.com/", params={"s": film_title, "apikey": api_key}, timeout=8)
+                        retry_data = retry_resp.json()
+                        if retry_data.get("Response") == "True" and retry_data.get("Search"):
+                            data = retry_data["Search"][0]
 
                 poster = data.get("Poster")
                 if poster and poster != "N/A":
@@ -379,6 +405,8 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None, f
             "animated_chars": stats.get("animated_chars"),
             "budget_adj": stats.get("budget_adj"),
             "box_office_adj": stats.get("box_office_adj"),
+            "dom_rev_adj": stats.get("dom_rev_adj"),
+            "intl_rev_adj": stats.get("intl_rev_adj"),
             "kev_drink_name": drink_snack.get("kev_drink_name"),
             "kev_drink_emoji": drink_snack.get("kev_drink_emoji"),
             "kev_glass_name": drink_snack.get("kev_glass_name"),
@@ -840,6 +868,8 @@ def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=N
         "animated_chars": _to_int(animated_chars),
         "budget_adj": budget_adj,
         "box_office_adj": box_office_adj,
+        "dom_rev_adj": dom_rev_adj,
+        "intl_rev_adj": intl_rev_adj,
     }
 
 
@@ -888,8 +918,10 @@ def load_film_stats(sheet_url):
                     imdb_rating=get(34), year=get(27),
                     sub_genre=get(29), runtime=get(30), explosions=get(35),
                     deaths=get(36), animated_chars=get(37),
-                    # Andy's block of the sheet doesn't include budget/revenue
-                    # columns, so those stay None for his films.
+                    # Andy's block didn't have budget/revenue columns
+                    # originally, but they've since been added at AM-AR,
+                    # mirroring Kev's block's layout at R-W exactly.
+                    budget_adj=get(39), dom_rev_adj=get(42), intl_rev_adj=get(43),
                 )
         return out
     except Exception as e:
@@ -1039,6 +1071,33 @@ def compute_leaderboard(episodes, field):
     return points
 
 
+def compute_box_office_leaderboard(episodes):
+    """[{film, value, dom, intl, season, genre}, ...] sorted by total
+    inflation-adjusted box office (dom + intl) - like compute_leaderboard,
+    but carries the domestic/international split alongside the total so
+    the Stats page's box office chart can switch between Total/Domestic/
+    International without three separate server-computed lists. "value" is
+    always the total, kept under that name so the chart's default (Total)
+    view can reuse the same rendering code path as compute_leaderboard's
+    other charts; "dom"/"intl" fall back to 0 (not the whole row being
+    dropped) when only one half of a film's revenue is on file, since a
+    missing half isn't a reason to hide a film that does have a real total."""
+    points = [
+        {
+            "film": ep["film_title"],
+            "value": ep["box_office_adj"],
+            "dom": ep.get("dom_rev_adj") or 0,
+            "intl": ep.get("intl_rev_adj") or 0,
+            "season": ep.get("season"),
+            "genre": ep.get("genre"),
+        }
+        for ep in episodes
+        if ep.get("box_office_adj") is not None
+    ]
+    points.sort(key=lambda p: p["value"], reverse=True)
+    return points
+
+
 # Brand names that .title() would otherwise mangle (e.g. "outout" -> "Outout").
 TITLE_FIXUPS = {"Outout": "OutOut"}
 
@@ -1167,7 +1226,7 @@ def build():
     critics_vs_audience = compute_critics_vs_audience(episodes)
     explosions_leaderboard = compute_leaderboard(episodes, "explosions")
     deaths_leaderboard = compute_leaderboard(episodes, "deaths")
-    box_office_leaderboard = compute_leaderboard(episodes, "box_office_adj")
+    box_office_leaderboard = compute_box_office_leaderboard(episodes)
     toptrumps_stats = load_toptrumps_stats(config.get("toptrumps_stats_sheet_url", ""))
     # Sorted alphabetically so the two Top Trumps radar dropdowns are easy
     # to scan - only films with a complete set of four ratings are in here
