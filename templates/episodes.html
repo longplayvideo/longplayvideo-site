@@ -31,12 +31,18 @@
     </div>
     <input type="text" class="episode-search" id="episode-search" placeholder="Search by film title...">
   </div>
-  {% if episode_genres or episode_guests or episode_years %}
+  {% if episode_genres or episode_subgenres or episode_guests or episode_years %}
   <div class="episode-controls" style="margin-top:-14px;">
     {% if episode_genres %}
     <select class="episode-search" id="genre-filter">
       <option value="all">All Genres</option>
       {% for g in episode_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    {% if episode_subgenres %}
+    <select class="episode-search" id="subgenre-filter">
+      <option value="all">All Sub-Genres</option>
+      {% for g in episode_subgenres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
     </select>
     {% endif %}
     {% if episode_guests %}
@@ -61,7 +67,7 @@
         <div class="decade-block">
           <h4 class="decade-title">{{ decade.label }}</h4>
           {% for ep in decade.episodes %}
-          <div class="episode-card" id="ep-{{ ep.slug }}" data-title="{{ ep.film_title|lower }}" data-genre="{{ ep.genre or '' }}" data-guest="{{ ep.guest or '' }}" data-year="{{ ep.year if ep.year is not none else '' }}">
+          <div class="episode-card" id="ep-{{ ep.slug }}" data-title="{{ ep.film_title|lower }}" data-genre="{{ ep.genre or '' }}" data-subgenre="{{ ep.sub_genre or '' }}" data-guest="{{ ep.guest or '' }}" data-year="{{ ep.year if ep.year is not none else '' }}">
             <div class="cover">{% if ep.poster %}<img src="{{ ep.poster }}" alt="{{ ep.film_title }} cover" loading="lazy">{% endif %}</div>
             <div class="body">
               <h3>{{ ep.title }}</h3>
@@ -138,6 +144,7 @@
   var searchInput = document.getElementById("episode-search");
   var noResults = document.getElementById("no-results");
   var genreFilter = document.getElementById("genre-filter");
+  var subgenreFilter = document.getElementById("subgenre-filter");
   var guestFilter = document.getElementById("guest-filter");
   var yearFilter = document.getElementById("year-filter");
 
@@ -145,6 +152,7 @@
     var activeFilter = document.querySelector(".season-filter-btn.active").dataset.filter;
     var query = (searchInput.value || "").trim().toLowerCase();
     var genre = genreFilter ? genreFilter.value : "all";
+    var subgenre = subgenreFilter ? subgenreFilter.value : "all";
     var guest = guestFilter ? guestFilter.value : "all";
     var year = yearFilter ? yearFilter.value : "all";
     var anyVisible = false;
@@ -157,9 +165,13 @@
         decade.querySelectorAll(".episode-card").forEach(function (card) {
           var titleMatches = !query || card.dataset.title.indexOf(query) !== -1;
           var genreMatches = genre === "all" || card.dataset.genre === genre;
+          // Sub-genre is stored as a comma-separated string (e.g. "Crime,
+          // Drama") since a film can have more than one - match if the
+          // selected value appears anywhere in that list.
+          var subgenreMatches = subgenre === "all" || (card.dataset.subgenre || "").split(",").map(function (s) { return s.trim(); }).indexOf(subgenre) !== -1;
           var guestMatches = guest === "all" || card.dataset.guest === guest;
           var yearMatches = year === "all" || card.dataset.year === year;
-          var visible = seasonMatches && titleMatches && genreMatches && guestMatches && yearMatches;
+          var visible = seasonMatches && titleMatches && genreMatches && subgenreMatches && guestMatches && yearMatches;
           card.style.display = visible ? "" : "none";
           if (visible) { decadeHasVisibleCard = true; anyVisible = true; }
         });
@@ -182,6 +194,7 @@
 
   if (searchInput) searchInput.addEventListener("input", applyFilters);
   if (genreFilter) genreFilter.addEventListener("change", applyFilters);
+  if (subgenreFilter) subgenreFilter.addEventListener("change", applyFilters);
   if (guestFilter) guestFilter.addEventListener("change", applyFilters);
   if (yearFilter) yearFilter.addEventListener("change", applyFilters);
 
