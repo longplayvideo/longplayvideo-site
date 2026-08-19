@@ -18,7 +18,9 @@
   "merch_url": "PASTE_YOUR_INKTHREADABLE_STORE_URL_HERE",
   "outout_url": "https://outoutsharedmemories.app/",
   "drinks_sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBscQeRxlsHkvlFzFDydY0zZkULQSQF0zoqQPXhK1ZliVG3xml98J-PchnYjvQFX7ZZ0zyuR1Mkrmp/pub?gid=410882245&single=true&output=csv",
+  "film_stats_sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBscQeRxlsHkvlFzFDydY0zZkULQSQF0zoqQPXhK1ZliVG3xml98J-PchnYjvQFX7ZZ0zyuR1Mkrmp/pub?gid=189958670&single=true&output=csv",
   "sheet_url": "PASTE_YOUR_LISTS_AND_STATS_GOOGLE_SHEET_SHARE_LINK_HERE",
+  "_note_sheet_url": "Left as placeholder deliberately - this is a normal (not published-CSV) share link shown as a public 'browse our data' button on the Stats page, so only set it if you're comfortable visitors seeing the whole Podcast S2 sheet (including any tabs you haven't hidden).",
   "contact_email": "longplayvideo@gmail.com",
   "max_episodes_home": 3,
   "omdb_api_key": "215ef832"
