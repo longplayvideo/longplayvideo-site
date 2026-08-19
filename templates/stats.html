@@ -15,6 +15,7 @@
     <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote. New cards get added as we go, drop a new image into <code>static/toptrumps/</code> and it shows up here automatically.</p>
     {% if toptrumps_cards %}
     <div class="panel-controls">
+      <input type="text" class="episode-search" id="toptrumps-search" placeholder="Search by film title...">
       <select class="episode-search" id="toptrumps-genre-filter">
         <option value="all">All Genres</option>
         {% for g in toptrumps_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
@@ -40,7 +41,7 @@
       </a>
       {% endfor %}
     </div>
-    <p class="no-results" id="toptrumps-no-results">No cards match that genre.</p>
+    <p class="no-results" id="toptrumps-no-results">No cards match that search.</p>
     {% else %}
     <div class="empty-state">No Top Trumps cards yet. Drop image files into <code>static/toptrumps/</code> and they'll appear here on the next rebuild.</div>
     {% endif %}
@@ -48,6 +49,13 @@
 
   <div class="toggle-panel" id="panel-stats">
     <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list.</p>
+    {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
+    <div class="toggle-group" style="margin-bottom:24px;">
+      <button type="button" class="toggle-btn active" data-season="all">All Episodes</button>
+      <button type="button" class="toggle-btn" data-season="1">Season 1</button>
+      <button type="button" class="toggle-btn" data-season="2">Season 2</button>
+    </div>
+    {% endif %}
     {% if genre_breakdown %}
     <div class="chart-card">
       <h4>Genre Breakdown</h4>
@@ -64,7 +72,26 @@
     {% else %}
     <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
     {% endif %}
+    {% if explosions_leaderboard %}
+    <div class="chart-card">
+      <h4>Most Explosive Films</h4>
+      <canvas id="explosions-chart" height="240"></canvas>
+    </div>
+    {% else %}
     <img class="stats-chart" src="{{ root }}static/stats/explosions-leaderboard.png" alt="Most explosive films leaderboard">
+    {% endif %}
+    {% if deaths_leaderboard %}
+    <div class="chart-card">
+      <h4>Highest Body Count</h4>
+      <canvas id="deaths-chart" height="240"></canvas>
+    </div>
+    {% endif %}
+    {% if box_office_leaderboard %}
+    <div class="chart-card">
+      <h4>Biggest Box Office (Inflation-Adjusted)</h4>
+      <canvas id="boxoffice-chart" height="240"></canvas>
+    </div>
+    {% endif %}
     {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
       <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
     {% endif %}
@@ -124,12 +151,12 @@
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if genre_breakdown or critics_vs_audience %}
+{% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 {% endif %}
 <script>
 (function () {
-  var toggleBtns = document.querySelectorAll(".toggle-btn");
+  var toggleBtns = document.querySelectorAll(".toggle-group .toggle-btn[data-panel]");
   var panels = document.querySelectorAll(".toggle-panel");
   toggleBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -161,7 +188,8 @@
   wireSearch("drinks-search", "drinks-list", "drinks-no-results");
   wireSearch("snacks-search", "snacks-list", "snacks-no-results");
 
-  // --- Top Trumps genre filter + sort ---
+  // --- Top Trumps search + genre filter + sort ---
+  var ttSearch = document.getElementById("toptrumps-search");
   var genreFilter = document.getElementById("toptrumps-genre-filter");
   var sortSelect = document.getElementById("toptrumps-sort");
   var grid = document.getElementById("toptrumps-grid");
@@ -170,6 +198,7 @@
     var originalOrder = Array.prototype.slice.call(grid.children);
 
     function applyToptrumps() {
+      var query = ttSearch ? ttSearch.value.trim().toLowerCase() : "";
       var genre = genreFilter ? genreFilter.value : "all";
       var sortBy = sortSelect ? sortSelect.value : "default";
 
@@ -196,13 +225,16 @@
 
       var anyVisible = false;
       cards.forEach(function (card) {
-        var visible = genre === "all" || card.dataset.genre === genre;
+        var titleMatches = !query || card.dataset.title.indexOf(query) !== -1;
+        var genreMatches = genre === "all" || card.dataset.genre === genre;
+        var visible = titleMatches && genreMatches;
         card.style.display = visible ? "" : "none";
         if (visible) anyVisible = true;
       });
       if (ttNoResults) ttNoResults.style.display = anyVisible ? "none" : "block";
     }
 
+    if (ttSearch) ttSearch.addEventListener("input", applyToptrumps);
     if (genreFilter) genreFilter.addEventListener("change", applyToptrumps);
     if (sortSelect) sortSelect.addEventListener("change", applyToptrumps);
   }
@@ -218,22 +250,42 @@
     });
   }
 
-  // --- Genre breakdown + critics vs audience charts (Chart.js), only
+  // --- Stats panel: Season toggle + interactive charts (Chart.js), only
   // rendered once real film stats data is wired up via film_stats_sheet_url
   // in config.json - falls back to the static chart images until then. ---
   if (window.Chart) {
     var genreData = {{ genre_breakdown|tojson }};
-    var genreCanvas = document.getElementById("genre-chart");
-    if (genreCanvas && genreData.length) {
-      new Chart(genreCanvas, {
+    var caData = {{ critics_vs_audience|tojson }};
+    var explosionsData = {{ explosions_leaderboard|tojson }};
+    var deathsData = {{ deaths_leaderboard|tojson }};
+    var boxOfficeData = {{ box_office_leaderboard|tojson }};
+
+    var charts = {}; // keyed by canvas id, destroyed + rebuilt on season change
+
+    function destroyChart(id) {
+      if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+
+    function bySeason(list, season) {
+      if (season === "all") return list;
+      return list.filter(function (d) { return String(d.season) === season; });
+    }
+
+    function renderGenreChart(season) {
+      var canvas = document.getElementById("genre-chart");
+      if (!canvas) return;
+      destroyChart("genre-chart");
+      // Re-aggregate counts per genre for the selected season, since the
+      // raw data is one row per (genre, season) pair.
+      var filtered = bySeason(genreData, season);
+      var counts = {};
+      filtered.forEach(function (g) { counts[g.genre] = (counts[g.genre] || 0) + g.count; });
+      var labels = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+      charts["genre-chart"] = new Chart(canvas, {
         type: "bar",
         data: {
-          labels: genreData.map(function (g) { return g.genre; }),
-          datasets: [{
-            label: "Episodes",
-            data: genreData.map(function (g) { return g.count; }),
-            backgroundColor: "#e8b452",
-          }],
+          labels: labels,
+          datasets: [{ label: "Episodes", data: labels.map(function (g) { return counts[g]; }), backgroundColor: "#e8b452" }],
         },
         options: {
           plugins: { legend: { display: false } },
@@ -245,29 +297,24 @@
       });
     }
 
-    var caData = {{ critics_vs_audience|tojson }};
-    var caCanvas = document.getElementById("critics-audience-chart");
-    if (caCanvas && caData.length) {
-      new Chart(caCanvas, {
+    function renderCriticsAudienceChart(season) {
+      var canvas = document.getElementById("critics-audience-chart");
+      if (!canvas) return;
+      destroyChart("critics-audience-chart");
+      var filtered = bySeason(caData, season);
+      charts["critics-audience-chart"] = new Chart(canvas, {
         type: "scatter",
         data: {
           datasets: [{
             label: "Film (Critics % vs Audience %)",
-            data: caData.map(function (d) { return { x: d.critics, y: d.audience, film: d.film }; }),
+            data: filtered.map(function (d) { return { x: d.critics, y: d.audience, film: d.film }; }),
             backgroundColor: "#ff6f5c",
           }],
         },
         options: {
           plugins: {
             legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function (ctx) {
-                  var d = ctx.raw;
-                  return d.film + ": Critics " + d.x + "%, Audience " + d.y + "%";
-                },
-              },
-            },
+            tooltip: { callbacks: { label: function (ctx) { var d = ctx.raw; return d.film + ": Critics " + d.x + "%, Audience " + d.y + "%"; } } },
           },
           scales: {
             x: { title: { display: true, text: "Critics %", color: "#fdf6ec" }, min: 0, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
@@ -276,6 +323,50 @@
         },
       });
     }
+
+    function renderLeaderboard(canvasId, data, season, color, valueLabel, formatValue) {
+      var canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      destroyChart(canvasId);
+      var filtered = bySeason(data, season).slice(0, 10);
+      charts[canvasId] = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: filtered.map(function (d) { return d.film; }),
+          datasets: [{ label: valueLabel, data: filtered.map(function (d) { return d.value; }), backgroundColor: color }],
+        },
+        options: {
+          indexAxis: "y",
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (ctx) { return valueLabel + ": " + formatValue(ctx.raw); } } },
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            y: { ticks: { color: "#fdf6ec" }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    function renderAll(season) {
+      renderGenreChart(season);
+      renderCriticsAudienceChart(season);
+      renderLeaderboard("explosions-chart", explosionsData, season, "#ff6f5c", "Explosions", function (v) { return v; });
+      renderLeaderboard("deaths-chart", deathsData, season, "#3fb6b0", "Deaths", function (v) { return v; });
+      renderLeaderboard("boxoffice-chart", boxOfficeData, season, "#e8b452", "Box Office", function (v) { return "$" + Math.round(v) + "m"; });
+    }
+
+    renderAll("all");
+
+    var seasonBtns = document.querySelectorAll('#panel-stats .toggle-group .toggle-btn[data-season]');
+    seasonBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        seasonBtns.forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        renderAll(btn.dataset.season);
+      });
+    });
   }
 })();
 </script>
