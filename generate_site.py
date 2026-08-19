@@ -127,20 +127,58 @@ def imdb_search_link(film_title):
     return "https://www.imdb.com/find/?q=" + urllib.parse.quote(film_title)
 
 
+COVER_CACHE_PATH = os.path.join(ROOT, "cover_cache.json")
+
+
+def load_cover_cache():
+    """
+    Persistent disk cache of {film title: {"poster":..., "imdb_id":...}},
+    committed to the repo so a poster - once found - doesn't need to be
+    re-fetched from OMDb on every single rebuild. Without this, the build
+    was re-querying all ~145 films from scratch every time it ran; the free
+    OMDb tier caps out at 1,000 lookups/day, and with this site rebuilding
+    repeatedly that quota got exhausted, which is exactly what made every
+    cover on the site disappear at once. With the cache in place, daily
+    OMDb usage drops to roughly "however many new episodes came out since
+    the last build" instead of the full list every time.
+    """
+    if not os.path.exists(COVER_CACHE_PATH):
+        return {}
+    try:
+        with open(COVER_CACHE_PATH) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_cover_cache(cache):
+    # Only persist genuine successes. A "not found" or rate-limited result
+    # stays out of the saved file so it's naturally retried on the next
+    # build (cheap, since almost everything else is already cached) rather
+    # than being stuck with no cover forever because of a transient failure.
+    persistable = {title: result for title, result in cache.items() if result.get("poster")}
+    with open(COVER_CACHE_PATH, "w") as f:
+        json.dump(persistable, f, indent=2, sort_keys=True)
+
+
+_omdb_quota_exceeded = False  # set for the rest of this build once OMDb reports its daily cap is hit
+
+
 def fetch_cover(film_title, api_key, cache):
     """
     Look up a film's poster + IMDb ID via the free OMDb API
     (https://www.omdbapi.com/apikey.aspx). Falls back to None/None if no
     API key is set, the lookup fails, or `requests` isn't installed -
     callers should handle missing posters gracefully.
-    Results are cached in-memory per build so the same film (e.g. featured
-    on both the homepage and the episodes page) is only fetched once.
+    `cache` is pre-loaded from cover_cache.json (see load_cover_cache), so
+    a film already found on a previous build is never re-fetched.
     """
+    global _omdb_quota_exceeded
     if film_title in cache:
         return cache[film_title]
 
     result = {"poster": None, "imdb_id": None}
-    if requests and api_key and "PASTE_" not in api_key:
+    if requests and api_key and "PASTE_" not in api_key and not _omdb_quota_exceeded:
         try:
             resp = requests.get(
                 "https://www.omdbapi.com/",
@@ -148,27 +186,34 @@ def fetch_cover(film_title, api_key, cache):
                 timeout=8,
             )
             data = resp.json()
-            if data.get("Response") != "True":
-                # Exact-title lookup failed - the episode title doesn't always match
-                # OMDb's official wording (e.g. "Kill Bill" vs "Kill Bill: Vol. 1", or
-                # "&" vs "and" in "Indiana Jones & the Last Crusade"). Fall back to
-                # OMDb's fuzzier search endpoint and take its top match instead of
-                # giving up and showing no cover art at all.
-                search_resp = requests.get(
-                    "https://www.omdbapi.com/",
-                    params={"s": film_title, "apikey": api_key},
-                    timeout=8,
-                )
-                search_data = search_resp.json()
-                if search_data.get("Response") == "True" and search_data.get("Search"):
-                    data = search_data["Search"][0]
+            if data.get("Error") == "Request limit reached!":
+                # No point burning the rest of the build hitting an
+                # exhausted quota - bail out early and let the cache fill
+                # in whatever it already has for the remaining episodes.
+                _omdb_quota_exceeded = True
+                print("  OMDb daily request limit reached - skipping remaining cover lookups this run.")
+            else:
+                if data.get("Response") != "True":
+                    # Exact-title lookup failed - the episode title doesn't always match
+                    # OMDb's official wording (e.g. "Kill Bill" vs "Kill Bill: Vol. 1", or
+                    # "&" vs "and" in "Indiana Jones & the Last Crusade"). Fall back to
+                    # OMDb's fuzzier search endpoint and take its top match instead of
+                    # giving up and showing no cover art at all.
+                    search_resp = requests.get(
+                        "https://www.omdbapi.com/",
+                        params={"s": film_title, "apikey": api_key},
+                        timeout=8,
+                    )
+                    search_data = search_resp.json()
+                    if search_data.get("Response") == "True" and search_data.get("Search"):
+                        data = search_data["Search"][0]
 
-            poster = data.get("Poster")
-            if poster and poster != "N/A":
-                result["poster"] = poster
-            imdb_id = data.get("imdbID")
-            if imdb_id:
-                result["imdb_id"] = imdb_id
+                poster = data.get("Poster")
+                if poster and poster != "N/A":
+                    result["poster"] = poster
+                imdb_id = data.get("imdbID")
+                if imdb_id:
+                    result["imdb_id"] = imdb_id
         except Exception as e:
             print(f"  OMDb lookup failed for '{film_title}': {e}")
 
@@ -188,7 +233,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
         print(f"Warning: couldn't parse RSS feed ({feed.bozo_exception}). Building with an empty episode list.")
         return []
 
-    cover_cache = {}
+    cover_cache = load_cover_cache()
     episodes = []
     for entry in feed.entries:
         date_str = ""
@@ -283,6 +328,7 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
             "snack_ingredients": drink_snack.get("snack_ingredients"),
         })
 
+    save_cover_cache(cover_cache)
     return episodes
 
 
@@ -474,39 +520,62 @@ def resolve_surprise_titles(titles_list, episodes):
          full "Spring, Summer, Autumn..." title, etc.)
       3. closest fuzzy match, accepted only above a safety threshold so it
          won't confidently link to the wrong film
-    Returns {normalized titles.json title: episode slug}, used as a
-    lookup table baked into the page so the client-side JS just does an
-    exact key lookup - no fuzzy matching needed in the browser.
+    Returns {normalized titles.json title: {"slug":..., "season":...}},
+    used as a lookup table baked into the page so the client-side JS just
+    does an exact key lookup - no fuzzy matching needed in the browser.
+    "season" is the *real* season the matched episode actually aired in -
+    used so the result always says e.g. "Season 1 pick" for a film that
+    aired in Season 1, even if it was picked from the Season 2 list (which
+    happens when the same film appears on both hosts' want-to-watch lists -
+    see the "surprise-me duplicate titles" build warning for the full list).
     """
-    episode_norms = [(normalize_title(ep["film_title"]), ep["slug"]) for ep in episodes]
+    episode_norms = [(normalize_title(ep["film_title"]), ep["slug"], ep.get("season")) for ep in episodes]
     lookup = {}
     for title in titles_list:
         key = normalize_title(title)
         if not key or key in lookup:
             continue
 
-        exact = next((slug for norm, slug in episode_norms if norm == key), None)
+        exact = next(((slug, season) for norm, slug, season in episode_norms if norm == key), None)
         if exact:
-            lookup[key] = exact
+            lookup[key] = {"slug": exact[0], "season": exact[1]}
             continue
 
-        contains = [(norm, slug) for norm, slug in episode_norms if key in norm or norm in key]
+        contains = [(norm, slug, season) for norm, slug, season in episode_norms if key in norm or norm in key]
         if contains:
-            contains.sort(key=lambda pair: abs(len(pair[0]) - len(key)))
-            lookup[key] = contains[0][1]
+            contains.sort(key=lambda tup: abs(len(tup[0]) - len(key)))
+            lookup[key] = {"slug": contains[0][1], "season": contains[0][2]}
             continue
 
-        best_slug, best_ratio = None, 0.0
-        for norm, slug in episode_norms:
+        best_slug, best_season, best_ratio = None, None, 0.0
+        for norm, slug, season in episode_norms:
             ratio = difflib.SequenceMatcher(None, key, norm).ratio()
             if ratio > best_ratio:
-                best_slug, best_ratio = slug, ratio
+                best_slug, best_season, best_ratio = slug, season, ratio
         if best_ratio >= 0.82:
-            lookup[key] = best_slug
+            lookup[key] = {"slug": best_slug, "season": best_season}
         # else: genuinely not released yet (or too different a title to
         # safely guess) - left out of the lookup, JS shows "not released
         # yet" for it.
     return lookup
+
+
+def warn_about_surprise_title_duplicates(titles):
+    """
+    Prints a build-log warning (doesn't fail the build) when the same film
+    appears on both Kev's and Andy's want-to-watch lists. Not necessarily a
+    mistake - either host might genuinely want it on their own list too -
+    but worth a human glance, since it means clicking "Surprise me" for one
+    season can land on a film that actually aired under the other season
+    (the on-page label now shows the real season either way, but the
+    underlying duplicate is still worth a look).
+    """
+    andy_norms = {normalize_title(t): t for t in titles.get("andy", [])}
+    dupes = [(k, andy_norms[normalize_title(k)]) for k in titles.get("kev", []) if normalize_title(k) in andy_norms]
+    if dupes:
+        print(f"  Note: {len(dupes)} title(s) appear on both the Kev and Andy want-to-watch lists:")
+        for kev_title, andy_title in dupes:
+            print(f"    - {kev_title!r} (Kev's list) / {andy_title!r} (Andy's list)")
 
 
 # Keyword-based (not exact-match) so new/slightly-different category wording
@@ -827,6 +896,7 @@ def build():
         group["decades"] = group_by_decade(group["episodes"])
     shop_items = load_shop_items()
     titles = load_titles()
+    warn_about_surprise_title_duplicates(titles)
     progress = season_progress(seasons)
     episodes_with_drinks = [ep for ep in episodes if ep.get("kev_drink_name") or ep.get("andy_drink_name") or ep.get("snack_name")]
     episodes_with_snacks = [ep for ep in episodes if ep.get("snack_name")]
