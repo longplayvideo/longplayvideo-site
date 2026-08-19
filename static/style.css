@@ -74,6 +74,38 @@ nav.site-nav a {
 }
 nav.site-nav a:hover { color: var(--gold-light); text-decoration: none; }
 
+.nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold-light);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+/* Below ~860px, seven nav links stop fitting the header on one line and
+   just wrap messily under the sticky bar, eating vertical space on every
+   page. Collapse them behind a hamburger button instead. */
+@media (max-width: 860px) {
+  .nav-toggle { display: block; }
+  nav.site-nav {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    margin-top: 14px;
+  }
+  nav.site-nav.open { display: flex; }
+  nav.site-nav a {
+    margin-left: 0;
+    padding: 12px 4px;
+    border-top: 1px solid rgba(253,246,236,0.12);
+    font-size: 1rem;
+  }
+}
+
 .hero {
   background-size: cover;
   background-position: center;
@@ -585,7 +617,7 @@ select.episode-search { max-width: 220px; cursor: pointer; }
 /* --- Shop / gallery pages --- */
 .showcase-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 20px;
   margin-top: 24px;
 }
@@ -595,7 +627,10 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   border: 2px solid rgba(232,180,82,0.3);
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
-.showcase-card img { display: block; width: 100%; height: auto; }
+/* Same card proportions as the Top Trumps grid (.toptrumps-card img) -
+   a tall aspect ratio with object-fit: cover so the product photo fills
+   and zooms to the frame instead of shrinking to fit with letterboxing. */
+.showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; background: rgba(232,180,82,0.08); }
 
 /* Start Here page - full episode-cards (cover + title + summary + links)
    need a lot more room than .showcase-grid's square-image columns
