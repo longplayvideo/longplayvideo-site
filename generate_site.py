@@ -51,6 +51,10 @@ SEASON_FINALE_RE = re.compile(r"Season\s*(\d+)\s*Finale", re.I)
 # even though it isn't an official ranked pick. Add this to a Spotify episode
 # title any time and the next rebuild will pick it up automatically.
 PAREN_FILM_RE = re.compile(r"\(([^)]+)\)\s*$")
+# A trailing "(2025)"-style bare year is a date annotation, not a film
+# title override (e.g. "Bonus Episode - Christmas Movies (2025)") - only
+# treat the parenthetical as a film override when it isn't just a year.
+YEAR_ONLY_RE = re.compile(r"^(19|20)\d{2}$")
 
 
 def slugify(text):
@@ -109,6 +113,8 @@ def parse_episode_title(title):
 
     paren_match = PAREN_FILM_RE.search(title)
     paren_film = paren_match.group(1).strip() if paren_match else None
+    if paren_film and YEAR_ONLY_RE.match(paren_film):
+        paren_film = None
 
     m2 = SEASON_EP_RE.match(title)
     if m2:
@@ -125,6 +131,52 @@ def parse_episode_title(title):
 def imdb_search_link(film_title):
     """Zero-setup fallback that always works, no API key required."""
     return "https://www.imdb.com/find/?q=" + urllib.parse.quote(film_title)
+
+
+FILM_YEARS_PATH = os.path.join(ROOT, "film_years.json")
+
+
+def load_film_years():
+    """
+    {normalized title: release year}, sourced from the hosts' own ranked
+    lists (titles.json's originals, via the Top 100 spreadsheet) - used to
+    tell OMDb which release year to match when a title has been remade
+    (e.g. "Road House" 1989 vs 2024, "The Running Man" 1987 vs 2025).
+    Without a year hint, OMDb's exact-title lookup tends to return whichever
+    version is most recent/popular, which silently shows the wrong film's
+    poster and IMDb link for anything with a same-named remake.
+    """
+    if not os.path.exists(FILM_YEARS_PATH):
+        return {}
+    try:
+        with open(FILM_YEARS_PATH) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def lookup_film_year(film_title, film_years):
+    """
+    Same exact -> substring -> fuzzy fallback as resolve_surprise_titles,
+    since the hosts' spreadsheet title and the Spotify episode's parsed
+    film_title don't always match exactly (e.g. "Running Man" in the
+    spreadsheet vs the episode's actual "The Running Man").
+    """
+    key = normalize_title(film_title)
+    if not key or not film_years:
+        return None
+    if key in film_years:
+        return film_years[key]
+    contains = [(k, v) for k, v in film_years.items() if key in k or k in key]
+    if contains:
+        contains.sort(key=lambda pair: abs(len(pair[0]) - len(key)))
+        return contains[0][1]
+    best_year, best_ratio = None, 0.0
+    for k, v in film_years.items():
+        ratio = difflib.SequenceMatcher(None, key, k).ratio()
+        if ratio > best_ratio:
+            best_year, best_ratio = v, ratio
+    return best_year if best_ratio >= 0.82 else None
 
 
 COVER_CACHE_PATH = os.path.join(ROOT, "cover_cache.json")
@@ -164,7 +216,7 @@ def save_cover_cache(cache):
 _omdb_quota_exceeded = False  # set for the rest of this build once OMDb reports its daily cap is hit
 
 
-def fetch_cover(film_title, api_key, cache):
+def fetch_cover(film_title, api_key, cache, year=None):
     """
     Look up a film's poster + IMDb ID via the free OMDb API
     (https://www.omdbapi.com/apikey.aspx). Falls back to None/None if no
@@ -172,19 +224,23 @@ def fetch_cover(film_title, api_key, cache):
     callers should handle missing posters gracefully.
     `cache` is pre-loaded from cover_cache.json (see load_cover_cache), so
     a film already found on a previous build is never re-fetched.
+    `year`, when known (see load_film_years), is passed to OMDb to pick the
+    right film when the title has been remade - e.g. "Road House" 1989 vs
+    2024 - since an unqualified title lookup otherwise tends to return
+    whichever version is newest/most popular.
     """
     global _omdb_quota_exceeded
-    if film_title in cache:
-        return cache[film_title]
+    cache_key = f"{film_title}|{year}" if year else film_title
+    if cache_key in cache:
+        return cache[cache_key]
 
     result = {"poster": None, "imdb_id": None}
     if requests and api_key and "PASTE_" not in api_key and not _omdb_quota_exceeded:
         try:
-            resp = requests.get(
-                "https://www.omdbapi.com/",
-                params={"t": film_title, "apikey": api_key},
-                timeout=8,
-            )
+            params = {"t": film_title, "apikey": api_key}
+            if year:
+                params["y"] = year
+            resp = requests.get("https://www.omdbapi.com/", params=params, timeout=8)
             data = resp.json()
             if data.get("Error") == "Request limit reached!":
                 # No point burning the rest of the build hitting an
@@ -199,11 +255,10 @@ def fetch_cover(film_title, api_key, cache):
                     # "&" vs "and" in "Indiana Jones & the Last Crusade"). Fall back to
                     # OMDb's fuzzier search endpoint and take its top match instead of
                     # giving up and showing no cover art at all.
-                    search_resp = requests.get(
-                        "https://www.omdbapi.com/",
-                        params={"s": film_title, "apikey": api_key},
-                        timeout=8,
-                    )
+                    search_params = {"s": film_title, "apikey": api_key}
+                    if year:
+                        search_params["y"] = year
+                    search_resp = requests.get("https://www.omdbapi.com/", params=search_params, timeout=8)
                     search_data = search_resp.json()
                     if search_data.get("Response") == "True" and search_data.get("Search"):
                         data = search_data["Search"][0]
@@ -217,13 +272,14 @@ def fetch_cover(film_title, api_key, cache):
         except Exception as e:
             print(f"  OMDb lookup failed for '{film_title}': {e}")
 
-    cache[film_title] = result
+    cache[cache_key] = result
     return result
 
 
-def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
+def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None, film_years=None):
     drinks_snacks = drinks_snacks or {}
     film_stats = film_stats or {}
+    film_years = film_years or {}
     if not rss_url or "PASTE_" in rss_url:
         print("No RSS feed URL set in config.json yet - building site with an empty episode list.")
         return []
@@ -285,7 +341,8 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None):
             except (TypeError, ValueError):
                 episode_num = None
 
-        cover = fetch_cover(film_title, omdb_api_key, cover_cache)
+        year_hint = lookup_film_year(film_title, film_years)
+        cover = fetch_cover(film_title, omdb_api_key, cover_cache, year=year_hint)
         imdb_link = (
             f"https://www.imdb.com/title/{cover['imdb_id']}/"
             if cover.get("imdb_id")
@@ -697,6 +754,8 @@ def load_drinks_snacks(sheet_url):
 
 
 def _to_float(val):
+    if isinstance(val, str):
+        val = val.strip().replace("%", "").replace("$", "").replace(",", "")
     try:
         return float(val)
     except (TypeError, ValueError):
@@ -708,17 +767,35 @@ def _to_int(val):
     return int(f) if f is not None else None
 
 
+def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=None):
+    rt_audience = _to_float(rt_audience)
+    rt_critics = _to_float(rt_critics)
+    # Tolerate scores entered either as 0-1 (0.94) or 0-100/"94%" - both
+    # normalise to a 0-100 number here.
+    if rt_audience is not None and rt_audience <= 1:
+        rt_audience *= 100
+    if rt_critics is not None and rt_critics <= 1:
+        rt_critics *= 100
+    return {
+        "genre": (genre or "").strip() or None,
+        "rt_audience": rt_audience,
+        "rt_critics": rt_critics,
+        "imdb_rating": _to_float(imdb_rating),
+        "guest": (guest or "").strip() or None,
+        "year": _to_int(year),
+    }
+
+
 def load_film_stats(sheet_url):
     """
-    Reads a published-to-web Google Sheet CSV with per-film data (genre,
-    Rotten Tomatoes audience/critic scores, IMDb rating, guest, release
-    year) used to power the Stats page's interactive charts, the Top Trumps
-    genre filter, and the Episodes page's genre/guest/year filters.
-    Expected columns: Film, Genre, RT Audience Score, RT Critics Score,
-    IMDb Rating, Guest, Release Year. RT scores can be entered either as a
-    0-1 fraction (0.94) or a 0-100 percentage (94) - both are normalised to
-    a 0-100 number here. Guest is optional - leave it blank for solo
-    episodes, it just won't get a guest filter option.
+    Reads the "Stats" tab of the shared Podcast S2 Google Sheet, published
+    to web as CSV. It's laid out as two side-by-side blocks in one sheet -
+    Kev's films in columns A-W, a blank spacer column, then Andy's films in
+    columns Y-AL - rather than one film per row, so this reads by column
+    position (not header name, since "Release Year"/"Main Genre"/etc appear
+    twice) and pulls a film from either or both blocks per row.
+    Used to power the Stats page's interactive charts, the Top Trumps genre
+    filter, and the Episodes page's genre/guest/year filters.
     Returns {} until a real film_stats_sheet_url is set in config.json - the
     site works fine either way, it just falls back to the old static chart
     images and unfiltered grids until this is wired up.
@@ -730,31 +807,26 @@ def load_film_stats(sheet_url):
         resp.raise_for_status()
         import csv
         import io
-        reader = csv.DictReader(io.StringIO(resp.text))
+        rows = list(csv.reader(io.StringIO(resp.text)))
         out = {}
-        for row in reader:
-            film = (row.get("Film") or "").strip()
-            if not film:
+        for row in rows[2:]:  # skip the "KEV'S FILMS/ANDY'S FILMS" banner row + the column-header row
+            if len(row) < 5:
                 continue
-            genre = (row.get("Genre") or "").strip() or None
-            rt_audience = _to_float(row.get("RT Audience Score"))
-            rt_critics = _to_float(row.get("RT Critics Score"))
-            imdb_rating = _to_float(row.get("IMDb Rating"))
-            # Tolerate scores entered either as 0-1 (0.94) or 0-100 (94).
-            if rt_audience is not None and rt_audience <= 1:
-                rt_audience *= 100
-            if rt_critics is not None and rt_critics <= 1:
-                rt_critics *= 100
-            guest = (row.get("Guest") or "").strip() or None
-            year = _to_int(row.get("Release Year"))
-            out[normalize_title(film)] = {
-                "genre": genre,
-                "rt_audience": rt_audience,
-                "rt_critics": rt_critics,
-                "imdb_rating": imdb_rating,
-                "guest": guest,
-                "year": year,
-            }
+            get = lambda i: row[i] if i < len(row) else ""
+
+            kev_title = get(4).strip()
+            if kev_title:
+                out[normalize_title(kev_title)] = _film_stats_entry(
+                    genre=get(7), rt_audience=get(10), rt_critics=get(11),
+                    imdb_rating=get(13), year=get(6),
+                )
+
+            andy_title = get(26).strip()
+            if andy_title:
+                out[normalize_title(andy_title)] = _film_stats_entry(
+                    genre=get(28), rt_audience=get(31), rt_critics=get(32),
+                    imdb_rating=get(34), year=get(27),
+                )
         return out
     except Exception as e:
         print(f"  Film stats sheet fetch failed: {e}")
@@ -826,19 +898,40 @@ def categorize_shop_item(fname):
 def load_shop_items():
     """Same automated pattern as Top Trumps - drop an image into
     static/shop/ and it shows up on the Shop page automatically, grouped
-    into a category guessed from the filename (see categorize_shop_item)."""
+    into a category guessed from the filename (see categorize_shop_item).
+
+    A file named "<name>-back.<ext>" is treated as the hover/back-side
+    image for "<name>.<ext>" (e.g. "stubby-holders.png" +
+    "stubby-holders-back.png") - hovering the card on the Shop page
+    crossfades to it. Optional; a product with no "-back" file just shows
+    the one image as always.
+    """
     folder = os.path.join(ROOT, "static", "shop")
     if not os.path.isdir(folder):
         return []
+    image_files = [f for f in sorted(os.listdir(folder)) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
+
+    back_by_stem = {}
+    front_files = []
+    for fname in image_files:
+        stem = os.path.splitext(fname)[0]
+        if stem.lower().endswith("-back"):
+            back_by_stem[stem[: -len("-back")]] = fname
+        else:
+            front_files.append(fname)
+
     grouped = {}
-    for fname in sorted(os.listdir(folder)):
-        if not fname.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            continue
-        title = os.path.splitext(fname)[0].replace("-", " ").replace("_", " ").title()
+    for fname in front_files:
+        stem = os.path.splitext(fname)[0]
+        title = stem.replace("-", " ").replace("_", " ").title()
         for wrong, right in TITLE_FIXUPS.items():
             title = title.replace(wrong, right)
         category = categorize_shop_item(fname)
-        grouped.setdefault(category, []).append({"file": fname, "title": title})
+        item = {"file": fname, "title": title}
+        back_file = back_by_stem.get(stem)
+        if back_file:
+            item["back_file"] = back_file
+        grouped.setdefault(category, []).append(item)
 
     # Note: deliberately "products", not "items" - Jinja2's dot-notation
     # attribute lookup on a dict tries real dict methods first, so a key
@@ -885,7 +978,8 @@ def build():
     config = load_config()
     drinks_snacks = load_drinks_snacks(config.get("drinks_sheet_url", ""))
     film_stats = load_film_stats(config.get("film_stats_sheet_url", ""))
-    episodes = fetch_episodes(config.get("rss_url", ""), config.get("omdb_api_key", ""), drinks_snacks, film_stats)
+    film_years = load_film_years()
+    episodes = fetch_episodes(config.get("rss_url", ""), config.get("omdb_api_key", ""), drinks_snacks, film_stats, film_years)
     episodes = infer_missing_seasons(episodes)
     toptrumps_cards = load_toptrumps_cards()
     toptrumps_cards = attach_film_stats_to_toptrumps(toptrumps_cards, film_stats)
