@@ -227,6 +227,40 @@ def save_cover_cache(cache):
 
 _omdb_quota_exceeded = False  # set for the rest of this build once OMDb reports its daily cap is hit
 
+# A handful of films where the episode's actual title (from Spotify) just
+# doesn't lead OMDb to the right entry, no matter how many fallbacks
+# fetch_cover() tries - OMDb's own canonical title differs enough that its
+# search endpoint doesn't even surface the real film as a candidate, not
+# just differently-punctuated/worded enough for it to still turn up (which
+# the normal fallback chain already handles fine on its own). Keyed by
+# normalize_title() of the episode's parsed title, same as everywhere else
+# in this file. Add an entry here if a future film's cover/IMDb link won't
+# resolve despite everything fetch_cover() already tries.
+OMDB_TITLE_OVERRIDES = {
+    normalize_title("A Cock and Bull Story"): "Tristram Shandy",
+    normalize_title("Spring, Summer, Autumn, Winter...and Spring"): "Spring, Summer, Fall, Winter... and Spring",
+}
+
+
+def _omdb_request(params, api_key):
+    """One OMDb call. Returns the parsed JSON dict, or None on a network
+    error or once the daily quota's been hit (sets _omdb_quota_exceeded so
+    the rest of this build stops trying)."""
+    global _omdb_quota_exceeded
+    if _omdb_quota_exceeded:
+        return None
+    try:
+        resp = requests.get("https://www.omdbapi.com/", params=dict(params, apikey=api_key), timeout=8)
+        data = resp.json()
+        if data.get("Error") == "Request limit reached!":
+            _omdb_quota_exceeded = True
+            print("  OMDb daily request limit reached - skipping remaining cover lookups this run.")
+            return None
+        return data
+    except Exception as e:
+        print(f"  OMDb lookup failed: {e}")
+        return None
+
 
 def fetch_cover(film_title, api_key, cache, year=None):
     """
@@ -240,63 +274,70 @@ def fetch_cover(film_title, api_key, cache, year=None):
     right film when the title has been remade - e.g. "Road House" 1989 vs
     2024 - since an unqualified title lookup otherwise tends to return
     whichever version is newest/most popular.
+
+    Tries up to four ways of asking OMDb, stopping at the first one that
+    actually returns a poster (not just stopping at the first one that
+    returns *a match*):
+      1. exact title + year
+      2. exact title, no year
+      3. fuzzy search + year, best-scoring result
+      4. fuzzy search, no year, best-scoring result
+    A plain "Response: True" isn't enough signal on its own to stop at -
+    OMDb's database includes a lot of low-quality/fan-content entries that
+    coincidentally match a real film's title (sometimes even its year):
+    e.g. "The Royal Tenenbaums" + year 2001 exact-matches a posterless fan
+    edit before it'd ever reach the real film (which OMDb itself files
+    under 2002), and "Ant Man and The Wasp" (no hyphen, matching how
+    Spotify's episode title reads) exact-matches a posterless YouTube
+    video of the same name rather than the real "Ant-Man and the Wasp".
+    Both are only found by working through the fallbacks to the search
+    endpoint. `year`, similarly, can disagree with OMDb's own year for a
+    title (overseas release date vs. the US date OMDb tracks) strictly
+    enough that the year-qualified attempts find nothing at all - hence
+    also trying unqualified.
     """
-    global _omdb_quota_exceeded
     cache_key = f"{film_title}|{year}" if year else film_title
     if cache_key in cache:
         return cache[cache_key]
 
-    result = {"poster": None, "imdb_id": None}
-    if requests and api_key and "PASTE_" not in api_key and not _omdb_quota_exceeded:
-        try:
-            params = {"t": film_title, "apikey": api_key}
-            if year:
-                params["y"] = year
-            resp = requests.get("https://www.omdbapi.com/", params=params, timeout=8)
-            data = resp.json()
-            if data.get("Error") == "Request limit reached!":
-                # No point burning the rest of the build hitting an
-                # exhausted quota - bail out early and let the cache fill
-                # in whatever it already has for the remaining episodes.
-                _omdb_quota_exceeded = True
-                print("  OMDb daily request limit reached - skipping remaining cover lookups this run.")
-            else:
-                if data.get("Response") != "True":
-                    # Exact-title lookup failed - the episode title doesn't always match
-                    # OMDb's official wording (e.g. "Kill Bill" vs "Kill Bill: Vol. 1", or
-                    # "&" vs "and" in "Indiana Jones & the Last Crusade"). Fall back to
-                    # OMDb's fuzzier search endpoint and take its top match instead of
-                    # giving up and showing no cover art at all.
-                    search_params = {"s": film_title, "apikey": api_key}
-                    if year:
-                        search_params["y"] = year
-                    search_resp = requests.get("https://www.omdbapi.com/", params=search_params, timeout=8)
-                    search_data = search_resp.json()
-                    if search_data.get("Response") == "True" and search_data.get("Search"):
-                        data = search_data["Search"][0]
-                    elif year:
-                        # Both year-qualified attempts came up empty - year_hint (from
-                        # film_years.json) can legitimately disagree with OMDb's own
-                        # year for a title (e.g. a film's overseas festival/theatrical
-                        # release year vs. the US release OMDb tracks - "Spirited
-                        # Away" is 2001 by one and 2003 by the other), and OMDb's `y`
-                        # filter is strict enough that a one-or-two-year mismatch
-                        # returns nothing at all rather than the closest match. One
-                        # last unqualified search is safer than showing no cover for
-                        # a real, findable film over a year filter being slightly off.
-                        retry_resp = requests.get("https://www.omdbapi.com/", params={"s": film_title, "apikey": api_key}, timeout=8)
-                        retry_data = retry_resp.json()
-                        if retry_data.get("Response") == "True" and retry_data.get("Search"):
-                            data = retry_data["Search"][0]
+    omdb_title = OMDB_TITLE_OVERRIDES.get(normalize_title(film_title), film_title)
 
-                poster = data.get("Poster")
-                if poster and poster != "N/A":
-                    result["poster"] = poster
-                imdb_id = data.get("imdbID")
-                if imdb_id:
-                    result["imdb_id"] = imdb_id
-        except Exception as e:
-            print(f"  OMDb lookup failed for '{film_title}': {e}")
+    result = {"poster": None, "imdb_id": None}
+    if requests and api_key and "PASTE_" not in api_key:
+        candidates = []
+        film_title = omdb_title
+
+        if year:
+            data = _omdb_request({"t": film_title, "y": year}, api_key)
+            if data and data.get("Response") == "True":
+                candidates.append(data)
+
+        if not any(c.get("Poster") not in (None, "N/A") for c in candidates):
+            data = _omdb_request({"t": film_title}, api_key)
+            if data and data.get("Response") == "True":
+                candidates.append(data)
+
+        if not any(c.get("Poster") not in (None, "N/A") for c in candidates):
+            if year:
+                data = _omdb_request({"s": film_title, "y": year}, api_key)
+                if data and data.get("Response") == "True":
+                    candidates.extend(data.get("Search", []))
+
+        if not any(c.get("Poster") not in (None, "N/A") for c in candidates):
+            data = _omdb_request({"s": film_title}, api_key)
+            if data and data.get("Response") == "True":
+                candidates.extend(data.get("Search", []))
+
+        # First candidate with a real poster wins; if none of them have
+        # one, still keep an IMDb link from whatever we did find (a link
+        # with no cover beats no link at all).
+        with_poster = next((c for c in candidates if c.get("Poster") not in (None, "N/A")), None)
+        chosen = with_poster or (candidates[0] if candidates else None)
+        if chosen:
+            if with_poster:
+                result["poster"] = chosen["Poster"]
+            if chosen.get("imdbID"):
+                result["imdb_id"] = chosen["imdbID"]
 
     cache[cache_key] = result
     return result
@@ -1030,6 +1071,26 @@ def compute_genre_breakdown(episodes):
     ]
 
 
+def compute_genre_films(episodes):
+    """[{genre, season, film, rank}, ...] - one row per episode that has a
+    genre, for the genre doughnut's tooltip (top 3 favourite-ranked films
+    per slice - see stats.html). Kept as raw per-film rows rather than
+    pre-computing the top 3 here, since the doughnut re-aggregates by
+    whichever season is currently selected client-side (same pattern as
+    compute_genre_breakdown's counts) and the top 3 need to be re-ranked
+    for that same live selection, not fixed at build time. "rank" is the
+    film's position on its host's original 100-film list (lower = higher
+    favourite) - comparing ranks across Kev's and Andy's separate lists
+    isn't a rigorous ranking, but it's a reasonable "favourite-ish" sort
+    for a bit of tooltip trivia. None for episodes with no single ranked
+    film (recaps, etc.) - those just sort last, never picked as a top 3."""
+    return [
+        {"genre": ep["genre"], "season": ep.get("season"), "film": ep["film_title"], "rank": ep.get("rank")}
+        for ep in episodes
+        if ep.get("genre")
+    ]
+
+
 def compute_critics_vs_audience(episodes):
     """[{film, critics, audience, season, genre, toptrumps_slug}, ...] for the
     critics-vs-audience scatter chart - only episodes with both scores
@@ -1223,6 +1284,7 @@ def build():
     episodes_with_snacks = [ep for ep in episodes if ep.get("snack_name")]
     start_here_picks = load_start_here_picks(episodes)
     genre_breakdown = compute_genre_breakdown(episodes)
+    genre_films = compute_genre_films(episodes)
     critics_vs_audience = compute_critics_vs_audience(episodes)
     explosions_leaderboard = compute_leaderboard(episodes, "explosions")
     deaths_leaderboard = compute_leaderboard(episodes, "deaths")
@@ -1267,6 +1329,7 @@ def build():
         "episodes_with_snacks": episodes_with_snacks,
         "start_here_picks": start_here_picks,
         "genre_breakdown": genre_breakdown,
+        "genre_films": genre_films,
         "critics_vs_audience": critics_vs_audience,
         "explosions_leaderboard": explosions_leaderboard,
         "deaths_leaderboard": deaths_leaderboard,

@@ -60,12 +60,18 @@
   </div>
 
   <div class="toggle-panel" id="panel-stats">
-    <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list. Click a slice of the genre chart to filter everything below it; hover a dot on the scatter chart for that film's card.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list. Filter everything by genre below, or hover a dot on the scatter chart for that film's card.</p>
     {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
     <div class="toggle-group" style="margin-bottom:24px;">
       <button type="button" class="toggle-btn active" data-season="all">All Episodes</button>
       <button type="button" class="toggle-btn" data-season="1">Season 1</button>
       <button type="button" class="toggle-btn" data-season="2">Season 2</button>
+      {% if episode_genres %}
+      <select class="episode-search" id="stats-genre-filter" style="max-width:200px;">
+        <option value="">All Genres</option>
+        {% for g in episode_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+      </select>
+      {% endif %}
     </div>
     {% endif %}
     {% if critics_vs_audience %}
@@ -96,7 +102,7 @@
         <h4>Biggest Box Office (Inflation-Adjusted)</h4>
         <div class="boxoffice-toggle">
           <button type="button" class="btn btn-small boxoffice-metric-btn active" data-metric="value">Total</button>
-          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="dom">Domestic</button>
+          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="dom">US</button>
           <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="intl">International</button>
         </div>
       </div>
@@ -300,6 +306,7 @@
   // position instead of snapping. ---
   if (window.Chart) {
     var genreData = {{ genre_breakdown|tojson }};
+    var genreFilmsData = {{ genre_films|tojson }};
     var caData = {{ critics_vs_audience|tojson }};
     var explosionsData = {{ explosions_leaderboard|tojson }};
     var deathsData = {{ deaths_leaderboard|tojson }};
@@ -397,6 +404,8 @@
     // ---------- Genre doughnut - click a slice to filter the whole panel ----------
     var genreColors = ["#e8b452", "#ff6f5c", "#3fb6b0", "#ff4fd8", "#f5d68a", "#7a1f1f", "#1f6f6a", "#cfa8ff"];
 
+    var genreTopFilms = {}; // genre label -> ["Film A", "Film B", "Film C"], rebuilt on every genreChartData() call
+
     function genreChartData() {
       // Re-aggregate counts per genre for the selected season, since the
       // raw data is one row per (genre, season) pair.
@@ -404,11 +413,38 @@
       var counts = {};
       list.forEach(function (g) { counts[g.genre] = (counts[g.genre] || 0) + g.count; });
       var labels = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+
+      // Top 3 favourite-ranked films per genre (lowest #rank first), for
+      // the tooltip - re-ranked from the raw per-film rows for whichever
+      // season is currently selected, same idea as the counts above.
+      genreTopFilms = {};
+      var filmsBySeasonGenre = bySeason(genreFilmsData);
+      labels.forEach(function (g) {
+        genreTopFilms[g] = filmsBySeasonGenre
+          .filter(function (f) { return f.genre === g; })
+          .slice()
+          .sort(function (a, b) {
+            if (a.rank == null) return 1;
+            if (b.rank == null) return -1;
+            return a.rank - b.rank;
+          })
+          .slice(0, 3)
+          .map(function (f) { return f.film; });
+      });
+
       var colors = labels.map(function (g, i) {
         var base = genreColors[i % genreColors.length];
         return (!state.genre || state.genre === g) ? base : base + "35"; // fade slices that aren't the active filter
       });
       return { labels: labels, values: labels.map(function (g) { return counts[g]; }), colors: colors };
+    }
+
+    function setGenreFilter(genre) {
+      state.genre = genre || null;
+      var select = document.getElementById("stats-genre-filter");
+      if (select && select.value !== (state.genre || "")) select.value = state.genre || "";
+      updateGenreChip();
+      renderAll();
     }
 
     function updateGenreChip() {
@@ -419,9 +455,14 @@
       chip.innerHTML = "Filtered by <strong>" + state.genre + "</strong> &mdash; <a href=\"#\" id=\"genre-filter-clear\">clear</a>";
       document.getElementById("genre-filter-clear").addEventListener("click", function (e) {
         e.preventDefault();
-        state.genre = null;
-        updateGenreChip();
-        renderAll();
+        setGenreFilter(null);
+      });
+    }
+
+    var genreFilterSelect = document.getElementById("stats-genre-filter");
+    if (genreFilterSelect) {
+      genreFilterSelect.addEventListener("change", function () {
+        setGenreFilter(genreFilterSelect.value);
       });
     }
 
@@ -444,14 +485,21 @@
           cutout: "25%",
           plugins: {
             legend: { position: "bottom", labels: { color: "#fdf6ec", boxWidth: 14, padding: 12 } },
-            tooltip: { callbacks: { label: function (ctx) { return ctx.label + ": " + ctx.raw + " episode" + (ctx.raw === 1 ? "" : "s"); } } },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.label + ": " + ctx.raw + " episode" + (ctx.raw === 1 ? "" : "s"); },
+                afterLabel: function (ctx) {
+                  var top = genreTopFilms[ctx.label] || [];
+                  if (!top.length) return "";
+                  return ["", "Top films:"].concat(top.map(function (f, i) { return (i + 1) + ". " + f; }));
+                },
+              },
+            },
           },
           onClick: function (evt, activeElements) {
             if (!activeElements.length) return;
             var label = charts["genre-chart"].data.labels[activeElements[0].index];
-            state.genre = (state.genre === label) ? null : label; // click the active slice again to clear it
-            updateGenreChip();
-            renderAll();
+            setGenreFilter(state.genre === label ? null : label); // click the active slice again to clear it
           },
         },
       });
@@ -558,7 +606,7 @@
     }
 
     // ---------- Box office - Total/Domestic/International toggle ----------
-    var BOXOFFICE_METRIC_LABELS = { value: "Total Box Office", dom: "Domestic Box Office", intl: "International Box Office" };
+    var BOXOFFICE_METRIC_LABELS = { value: "Total Box Office", dom: "US Box Office", intl: "International Box Office" };
 
     function renderBoxOfficeChart() {
       var canvas = document.getElementById("boxoffice-chart");

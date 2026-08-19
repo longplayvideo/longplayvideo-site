@@ -423,6 +423,14 @@ h3.decade-title {
 @media (max-width: 520px) {
   .episode-card { flex-direction: column; }
   .episode-card .cover { width: 100%; height: 200px; }
+  /* .start-here-grid's minmax(340px, 1fr) columns (below) don't shrink
+     below 340px even in a narrower container - grid holds that minimum
+     and lets the page overflow sideways instead, which is what was
+     pushing the whole Start Here page right and blowing up each card
+     (and its cover, sized off the card) past the actual viewport width.
+     A single full-width column here matches how the Episodes page's own
+     list already stacks on mobile. */
+  .start-here-grid { grid-template-columns: 1fr; }
 }
 
 /* --- Episodes page controls: filters, search, back-to-top --- */
