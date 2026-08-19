@@ -19,7 +19,8 @@
     <img src="{{ root }}static/header-logo.jpg" alt="{{ config.site_title }} logo">
     {{ config.site_title }}
   </a>
-  <nav class="site-nav">
+  <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false">&#9776;</button>
+  <nav class="site-nav" id="site-nav">
     <a href="{{ root }}index.html">Home</a>
     <a href="{{ root }}starthere.html">Start Here</a>
     <a href="{{ root }}episodes.html">Episodes</a>
@@ -29,6 +30,23 @@
     <a href="{{ root }}about.html">About</a>
   </nav>
 </header>
+<script>
+(function () {
+  var toggle = document.getElementById("nav-toggle");
+  var nav = document.getElementById("site-nav");
+  if (!toggle || !nav) return;
+  toggle.addEventListener("click", function () {
+    var open = nav.classList.toggle("open");
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  nav.querySelectorAll("a").forEach(function (a) {
+    a.addEventListener("click", function () {
+      nav.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    });
+  });
+})();
+</script>
 
 {% block content %}{% endblock %}
 

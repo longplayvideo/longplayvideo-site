@@ -7,13 +7,19 @@
   <p>Tees, tapes and other bits from behind the bar - printed to order, no stock sitting in a garage. We're not taking orders just yet, but here's a look at what we've got so far.</p>
 
   {% if shop_items %}
+  {% set ns = namespace(idx=0) %}
   {% for group in shop_items %}
   <h3 class="season-title"{% if loop.first %} style="margin-top:0;border-top:none;padding-top:0;"{% endif %}>{{ group.label }}</h3>
   <div class="showcase-grid">
     {% for item in group.products %}
     <div class="showcase-card">
+      {% if ns.idx < 9 %}
+      <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="eager" fetchpriority="high">
+      {% else %}
       <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy">
+      {% endif %}
     </div>
+    {% set ns.idx = ns.idx + 1 %}
     {% endfor %}
   </div>
   {% endfor %}
