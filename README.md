@@ -139,6 +139,10 @@ pattern as Top Trumps cards. The filename becomes the title (e.g.
 - **Category**: guessed automatically from the filename ending -
   `-tee` or `-hoodie` → Clothing, `-cap` → Headwear, anything else →
   Accessories & Extras (e.g. `logo-tee.jpg`, `season1-cap.jpg`).
+- **Adding a new category**: this one needs a small code change (the
+  category list lives in `generate_site.py`, not a filename you can just
+  type) - just ask and it'll be added, took about 2 minutes each of the
+  times it's come up so far.
 - **Sizing**: images are cropped to the same tall card shape as the Top
   Trumps cards and zoomed to fill the frame (`object-fit: cover`), so a
   roughly portrait-oriented photo (about 2:3, same as a trading card)
@@ -149,6 +153,40 @@ pattern as Top Trumps cards. The filename becomes the title (e.g.
   the card crossfades to it - handy for a tee's back print or the other
   side of an item. Optional, and only affects devices with a mouse -
   touch/mobile just shows the front image, there's no tap-to-flip yet.
+
+## Film Stats sheet -> filters &amp; charts
+
+The Film Stats Google Sheet (`film_stats_sheet_url`) now powers more than
+just the two original charts:
+
+- **Episodes page filters**: Genre, Sub-Genre, Guest and Year dropdowns -
+  each one only appears once at least one film has that data filled in.
+- **Stats panel**: Genre Breakdown, Critics vs Audience, plus three trivia
+  leaderboards (Most Explosive Films, Highest Body Count, Biggest Box
+  Office - inflation-adjusted) - all with an All Episodes / Season 1 /
+  Season 2 toggle above them.
+- **Top Trumps sort**: IMDb Rating and Audience Score sort options on the
+  Top Trumps grid.
+
+Nothing to configure beyond keeping the sheet's columns filled in - a
+column with no data for a given film just leaves that film out of the
+relevant chart/filter rather than breaking anything.
+
+## Top Trumps images
+
+Same automatic folder-drop pattern as the Shop page: drop a card image into
+`static/toptrumps/` (jpg/png/webp) and it appears on the Top Trumps &amp;
+Stats page automatically, titled from the filename (e.g. `drive.jpg` ->
+"Drive").
+
+- **To replace a card**: upload a new file with the exact same filename via
+  GitHub's "Add file → Upload files" - it detects the name match and offers
+  to overwrite it.
+- **To add a new card**: upload a new image with a new filename.
+- **To remove a card**: delete its file from `static/toptrumps/` in GitHub.
+- There's currently no front/back hover swap on Top Trumps cards (unlike
+  Shop) - each card just links out to the full-size image on click. Say the
+  word if you'd like that added.
 
 ## Top Trumps auto-linking
 
