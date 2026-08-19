@@ -12,11 +12,14 @@
   <h3 class="season-title"{% if loop.first %} style="margin-top:0;border-top:none;padding-top:0;"{% endif %}>{{ group.label }}</h3>
   <div class="showcase-grid">
     {% for item in group.products %}
-    <div class="showcase-card">
+    <div class="showcase-card{% if item.back_file %} has-back{% endif %}">
       {% if ns.idx < 9 %}
-      <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="eager" fetchpriority="high">
+      <img class="shop-front" src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="eager" fetchpriority="high">
       {% else %}
-      <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy">
+      <img class="shop-front" src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy">
+      {% endif %}
+      {% if item.back_file %}
+      <img class="shop-back" src="{{ root }}static/shop/{{ item.back_file }}" alt="{{ item.title }} (back)" loading="lazy">
       {% endif %}
     </div>
     {% set ns.idx = ns.idx + 1 %}
