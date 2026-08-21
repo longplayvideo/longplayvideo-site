@@ -14,9 +14,9 @@
   <div class="toggle-panel active" id="panel-toptrumps">
     {% set has_quotes = radar_films|selectattr('quote')|list %}
     {% if has_quotes %}
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatch, Romance, Action, Soundtrack and a Quote.</p>
     {% else %}
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action and Soundtrack.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatch, Romance, Action and Soundtrack.</p>
     {% endif %}
     {% if radar_films and radar_films|length > 1 %}
     <div class="chart-card" id="radar-card">
@@ -322,12 +322,17 @@
     selA.value = 0;
     selB.value = 1;
 
+    // Each category keeps its own colour identity (light/dark pair of
+    // the same hue), rather than every bar sharing one "film A vs film
+    // B" colour - light shade is always the left/A picker's film, dark
+    // is always the right/B picker's, so the pairing stays predictable
+    // even though the hue changes row to row.
     var CARD_CLASH_CATEGORIES = [
-      { key: "first_watch", label: "First Watch" },
-      { key: "rewatch", label: "Rewatchability" },
-      { key: "romance", label: "Romance" },
-      { key: "action", label: "Action" },
-      { key: "soundtrack", label: "Soundtrack" },
+      { key: "first_watch", label: "First Watch", light: "#e0ab4c", dark: "#9c7530" },
+      { key: "rewatch", label: "Rewatch", light: "#d68a63", dark: "#97522f" },
+      { key: "romance", label: "Romance", light: "#b884ab", dark: "#7a4f72" },
+      { key: "action", label: "Action", light: "#4fada0", dark: "#2c6b62" },
+      { key: "soundtrack", label: "Soundtrack", light: "#c3b179", dark: "#83743f" },
     ];
 
     function ccCardHtml(film, side) {
@@ -348,14 +353,6 @@
         '</div>';
     }
 
-    // Same gold/coral pairing used everywhere else on this page (Card
-    // Clash's own stamp glow aside, this is the "two sides" colour
-    // language - Dice Battle's radar, the Budget vs Box Office season
-    // split), rather than a third colour scheme just for this chart.
-    // Gold is always whichever film sits in the left/A picker.
-    var CC_COLOR_A = "#e8b452";
-    var CC_COLOR_B = "#ff6f5c";
-
     // Hand-built HTML/CSS rather than a Chart.js canvas - only 5 fixed
     // rows and no interactivity beyond a hover tooltip, so a canvas
     // chart was buying nothing here except fighting its layout engine
@@ -365,13 +362,15 @@
     // script tag condition, reverted back to dice_battle_played alone
     // accordingly.
     //
-    // One row per CATEGORY (First Watch, Rewatchability, ...), not one
+    // One row per CATEGORY (First Watch, Rewatch, ...), not one
     // row per film - each row is a single percentage-stacked bar split
     // between the two films' scores for that category, so it reads as a
     // direct per-category comparison rather than either film's overall
     // "shape". Labels show the real scores, not the percentage - the
     // proportion is what sizes the bar, but the actual numbers are more
-    // useful to read here than an abstract split.
+    // useful to read here than an abstract split. The row's own title is
+    // recoloured to match whichever film is ahead in that category, so
+    // the title colour alone tells you who's winning that row.
     function renderStatBreakdown(filmA, filmB) {
       var wrap = document.getElementById("card-clash-bar-chart");
       if (!wrap) return;
@@ -386,19 +385,25 @@
         // tooltip carry it instead.
         var labelA = pctA >= 15 ? filmA.title + " " + a : "";
         var labelB = pctB >= 15 ? filmB.title + " " + b : "";
+        var titleColor = a === b ? "var(--gold-light)" : (a > b ? c.light : c.dark);
         return '<div class="sb-row">' +
-          '<div class="sb-title">' + c.label + '</div>' +
+          '<div class="sb-title" style="color:' + titleColor + '">' + c.label + '</div>' +
           '<div class="sb-bar">' +
-          '<div class="sb-segment" style="width:' + pctA + '%;background:' + CC_COLOR_A + ';" title="' + filmA.title + ': ' + a + '">' + labelA + '</div>' +
-          '<div class="sb-segment" style="width:' + pctB + '%;background:' + CC_COLOR_B + ';" title="' + filmB.title + ': ' + b + '">' + labelB + '</div>' +
+          '<div class="sb-segment" style="width:' + pctA + '%;background:' + c.light + ';" title="' + filmA.title + ': ' + a + '">' + labelA + '</div>' +
+          '<div class="sb-segment" style="width:' + pctB + '%;background:' + c.dark + ';" title="' + filmB.title + ': ' + b + '">' + labelB + '</div>' +
           '</div>' +
           '</div>';
       }
 
       var rows = CARD_CLASH_CATEGORIES.map(rowHtml).join("");
+      // The legend just needs to establish "light = A, dark = B" as a
+      // rule of thumb - reusing the first category's own pair rather
+      // than a separate neutral swatch, since that's exactly the pair
+      // already visible in the row right above it.
+      var sample = CARD_CLASH_CATEGORIES[0];
       var legend =
-        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CC_COLOR_A + '"></span>' + filmA.title + '</span>' +
-        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CC_COLOR_B + '"></span>' + filmB.title + '</span>';
+        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + sample.light + '"></span>' + filmA.title + '</span>' +
+        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + sample.dark + '"></span>' + filmB.title + '</span>';
 
       wrap.innerHTML = rows + '<div class="sb-legend">' + legend + '</div>';
     }
@@ -471,7 +476,7 @@
         var kevSide = diceSide(r.kev_film, r.andy_scores_kev, r.andy_best_line);
         var andySide = diceSide(r.andy_film, r.kev_scores_andy, r.kev_best_line);
         var data = {
-          labels: ["First Watch", "Rewatchability", "Romance", "Action", "Soundtrack"],
+          labels: ["First Watch", "Rewatch", "Romance", "Action", "Soundtrack"],
           datasets: [radarDataset(kevSide, "#e8b452"), radarDataset(andySide, "#ff6f5c")],
         };
         if (diceChart) {

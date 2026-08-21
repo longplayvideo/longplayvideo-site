@@ -532,6 +532,15 @@ select.episode-search option {
 }
 .toggle-btn:hover { background: rgba(232,180,82,0.15); }
 .toggle-btn.active { background: var(--gold); color: var(--red-dark); }
+@media (max-width: 560px) {
+  /* flex-wrap on 4 variable-width buttons ("Top Trumps"/"Snacks Menu"/
+     "Dice Battle" etc.) wraps ragged - 2 fit a row, the 3rd wraps alone
+     leaving a gap, the 4th sits oddly under it. A real 2-column grid
+     wraps every group of 4 on this page cleanly instead. */
+  .toggle-group { display: grid; grid-template-columns: 1fr 1fr; }
+  .toggle-group .toggle-btn,
+  .toggle-group select { width: 100%; text-align: center; }
+}
 .toggle-panel {
   display: none;
   border-radius: 20px;
@@ -1038,10 +1047,12 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   background: var(--purple);
   color: var(--cream);
   border-radius: 14px;
-  border: 2px solid rgba(232,180,82,0.3);
+  /* Opaque, not the old semi-transparent gold - same fix already applied
+     to .chart-card, missed here since this predates that pass. */
+  border: 2px solid #8a6d42;
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
-.partner-logo { flex: 0 0 auto; width: 180px; max-width: 40%; height: auto; border-radius: 8px; }
+.partner-logo { flex: 0 0 auto; width: 230px; max-width: 45%; height: auto; border-radius: 8px; }
 .partner-body { min-width: 0; }
 .partner-eyebrow {
   margin: 0 0 6px;
@@ -1182,6 +1193,15 @@ footer.site-footer a { color: var(--gold-light); }
 .social-links a { display: inline-flex; align-items: center; gap: 6px; }
 .social-links img { width: 22px; height: 22px; vertical-align: middle; }
 .social-links .partner-footer-logo { width: auto; height: 20px; border-radius: 3px; }
+@media (max-width: 560px) {
+  /* Icon + full platform name, one per row on a narrow screen, made the
+     footer enormous - name is still there for screen readers (aria-label
+     on the link), just not painted. Icons alone, wrapped tightly, fit
+     everything in 2-3 short rows instead of ten tall ones. */
+  .social-links { gap: 14px; }
+  .social-links .social-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .social-links img { width: 26px; height: 26px; }
+}
 
 .history-block {
   display: flex;
