@@ -664,6 +664,39 @@ select.episode-search option {
   line-height: 1.5;
 }
 
+/* --- Dice Battle scoreboard --- */
+.dice-scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin: 12px 0 4px;
+}
+.dice-scoreboard-side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dice-scoreboard-name {
+  color: var(--gold-light);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+}
+.dice-scoreboard-score { font-size: 2.6rem; font-weight: 800; color: var(--cream); line-height: 1; }
+.dice-scoreboard-vs { color: var(--gold); font-weight: 800; font-size: 1.1rem; }
+.dice-scoreboard-lead {
+  text-align: center;
+  color: #cdbfe0;
+  font-size: 0.85rem;
+  margin: 0 0 24px;
+  text-transform: capitalize;
+}
+.dice-round-result { text-align: center; margin: 14px 0 0; font-size: 0.9rem; }
+.dice-history-row { cursor: pointer; transition: transform 0.15s ease; }
+.dice-history-row:hover { transform: translateY(-2px); }
+.dice-history-vs { color: var(--gold); font-weight: 700; font-size: 0.8rem; margin: 0 4px; }
+.dice-winner-tag { font-weight: 800; }
+.dice-winner-andy { color: var(--gold-light); border-color: var(--gold); }
+.dice-winner-kev { color: var(--coral); border-color: var(--coral); }
+
 /* Leaderboard header row (title + Reverse Order button) - falls back to a
    stacked layout on narrow screens rather than squashing the button. */
 .chart-card-head {

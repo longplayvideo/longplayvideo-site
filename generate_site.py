@@ -1092,6 +1092,71 @@ def load_toptrumps_stats(sheet_url):
         return {}
 
 
+def load_dice_battle(sheet_url):
+    """
+    Reads the "Top Trumps Totals (update)" tab, published to web as CSV -
+    the weekly game where each host scores the OTHER's pick: Andy rates
+    that week's Kev S02 film, Kev rates the correspondingly-numbered Andy
+    S01 film (paired by rank, e.g. rank 100's round is Andy scoring "The
+    Usual Suspects" against Kev scoring "Baby Driver"), then a dice roll
+    and a call on who won that round.
+
+    Two side-by-side blocks like the Stats tab, but unlike that one there's
+    no shared row count to rely on - every rank from 1 to 100 has a row
+    (Andy's S01 side is fully populated, since Season 1 already finished
+    airing), but the Kev S02 side - and therefore the dice roll/winner
+    call for that round - is only filled in for ranks that have actually
+    aired. A round only counts as "played" once it has a Winner (deliberately
+    not just non-empty score cells, matching this sheet's own convention -
+    every unplayed row's "TT Scores" cell shows the CURRENT running total
+    copied down as a placeholder for what it'll become, not a real score,
+    which is exactly why this function computes its own tally from the
+    Winner column below rather than trusting that column).
+
+    Returns [] until a real dice_battle_sheet_url is set in config.json.
+    """
+    if not sheet_url or "PASTE_" in sheet_url or not requests:
+        return []
+    try:
+        resp = requests.get(sheet_url, timeout=8)
+        resp.raise_for_status()
+        import csv
+        import io
+        rows = list(csv.reader(io.StringIO(resp.text)))
+        out = []
+        for row in rows[2:]:  # first two rows are the block headers
+            get = lambda i: row[i] if i < len(row) else ""
+            rank = _to_int(get(0))
+            if rank is None:
+                continue
+            winner_raw = get(9).strip().lower()
+            winner = {"andy": "andy", "a": "andy", "kev": "kev", "k": "kev"}.get(winner_raw)
+            out.append({
+                "rank": rank,
+                "kev_film": get(1).strip() or None,
+                "andy_scores_kev": {
+                    "first_watch": _to_int(get(2)), "rewatch": _to_int(get(3)),
+                    "romance": _to_int(get(4)), "action": _to_int(get(5)),
+                    "soundtrack": _to_int(get(6)),
+                },
+                "andy_best_line": get(7).strip() or None,
+                "dice_roll": get(8).strip() or None,
+                "winner": winner,
+                "andy_film": get(15).strip() or None,
+                "kev_scores_andy": {
+                    "first_watch": _to_int(get(16)), "rewatch": _to_int(get(17)),
+                    "romance": _to_int(get(18)), "action": _to_int(get(19)),
+                    "soundtrack": _to_int(get(20)),
+                },
+                "kev_best_line": get(21).strip() or None,
+                "played": winner is not None,
+            })
+        return out
+    except Exception as e:
+        print(f"  Dice Battle sheet fetch failed: {e}")
+        return []
+
+
 def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes=None):
     """Stamps genre/rating data onto each Top Trumps card (matched by title,
     same loose normalize_title match used everywhere else) so the grid can
@@ -1401,6 +1466,28 @@ def build():
     # to scan - only films with a complete set of four ratings are in here
     # at all (see load_toptrumps_stats), so no extra filtering needed here.
     radar_films = sorted(toptrumps_stats.values(), key=lambda d: d["title"].lower())
+    dice_battle_rounds = load_dice_battle(config.get("dice_battle_sheet_url", ""))
+    # Ascending by rank = most-recently-aired round first (S02's countdown
+    # airs highest rank number first, working down towards Kev's #1
+    # favourite, so the lowest rank number reached so far is the newest
+    # episode - see load_dice_battle's docstring for the full pairing
+    # explanation).
+    # A round only actually counts once the matching Kev S02 episode has
+    # itself gone out publicly - the sheet's Winner column has been seen
+    # filled in a rank ahead of the real RSS feed (looks like results get
+    # logged as they're recorded, not when the episode airs), and showing
+    # that round here would spoil a result for an episode nobody's heard
+    # yet. Cross-checking against the real aired ranks, not just the
+    # sheet's own "played" flag, is what keeps this spoiler-safe.
+    aired_kev_ranks = {ep["rank"] for ep in episodes if ep.get("season") == 2 and ep.get("rank")}
+    dice_battle_played = sorted(
+        (r for r in dice_battle_rounds if r["played"] and r["rank"] in aired_kev_ranks),
+        key=lambda r: r["rank"],
+    )
+    dice_battle_tally = {
+        "andy": sum(1 for r in dice_battle_played if r["winner"] == "andy"),
+        "kev": sum(1 for r in dice_battle_played if r["winner"] == "kev"),
+    }
     episode_genres = sorted({ep["genre"] for ep in episodes if ep.get("genre")})
     episode_guests = sorted({ep["guest"] for ep in episodes if ep.get("guest")})
     episode_years = sorted({ep["year"] for ep in episodes if ep.get("year")}, reverse=True)
@@ -1444,6 +1531,8 @@ def build():
         "box_office_leaderboard": box_office_leaderboard,
         "budget_vs_boxoffice": budget_vs_boxoffice,
         "radar_films": radar_films,
+        "dice_battle_played": dice_battle_played,
+        "dice_battle_tally": dice_battle_tally,
         "toptrumps_genres": toptrumps_genres,
         "episode_genres": episode_genres,
         "episode_guests": episode_guests,

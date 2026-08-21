@@ -9,6 +9,7 @@
     <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
     <button type="button" class="toggle-btn" data-panel="panel-drinks">Drinks Menu</button>
     <button type="button" class="toggle-btn" data-panel="panel-snacks">Snacks Menu</button>
+    {% if dice_battle_played %}<button type="button" class="toggle-btn" data-panel="panel-dicebattle">Dice Battle</button>{% endif %}
   </div>
 
   <div class="toggle-panel active" id="panel-toptrumps">
@@ -119,6 +120,59 @@
     <div class="empty-state">No snacks logged yet. Add a Google Sheet share link to <code>config.json</code> (<code>drinks_sheet_url</code>) with a Snack Name column, and this fills in automatically.</div>
     {% endif %}
   </div>
+
+  {% if dice_battle_played %}
+  <div class="toggle-panel" id="panel-dicebattle">
+    <p class="intro-blurb" style="margin-bottom:20px;">Every week, Andy scores that week's Kev pick and Kev scores the correspondingly-ranked Andy pick, a dice roll settles the category, and one of them wins the round.</p>
+
+    <div class="dice-scoreboard">
+      <div class="dice-scoreboard-side">
+        <span class="dice-scoreboard-name">Andy</span>
+        <span class="dice-scoreboard-score" id="dice-score-andy">{{ dice_battle_tally.andy }}</span>
+      </div>
+      <span class="dice-scoreboard-vs">vs</span>
+      <div class="dice-scoreboard-side">
+        <span class="dice-scoreboard-name">Kev</span>
+        <span class="dice-scoreboard-score" id="dice-score-kev">{{ dice_battle_tally.kev }}</span>
+      </div>
+    </div>
+    <p class="dice-scoreboard-lead">
+      {% if dice_battle_tally.andy > dice_battle_tally.kev %}Andy's ahead
+      {% elif dice_battle_tally.kev > dice_battle_tally.andy %}Kev's ahead
+      {% else %}All square
+      {% endif %}
+      after {{ dice_battle_played|length }} round{{ 's' if dice_battle_played|length != 1 else '' }}
+    </p>
+
+    <div class="chart-card" id="dice-round-card">
+      <h4>Round Replay</h4>
+      <div class="radar-picker">
+        <select class="episode-search" id="dice-round-picker" aria-label="Pick a round"></select>
+      </div>
+      <canvas id="dice-radar-chart" height="300"></canvas>
+      <p class="radar-quotes" id="dice-round-quotes"></p>
+      <p class="dice-round-result" id="dice-round-result"></p>
+    </div>
+
+    <div class="panel-controls">
+      <input type="text" class="episode-search" id="dice-history-search" placeholder="Search by film title...">
+    </div>
+    <div class="link-list" style="list-style:none;" id="dice-history-list">
+      {% for r in dice_battle_played %}
+      <div class="episode-card dice-history-row" data-title="{{ (r.kev_film ~ ' ' ~ r.andy_film)|lower }}" data-index="{{ loop.index0 }}">
+        <div class="body">
+          <h3>#{{ r.rank }} &middot; {{ r.kev_film }} <span class="dice-history-vs">vs</span> {{ r.andy_film }}</h3>
+          <div class="card-links">
+            <span class="snack-tag">🎲 {{ r.dice_roll }}</span>
+            <span class="snack-tag dice-winner-tag dice-winner-{{ r.winner }}">Winner: {{ r.winner|capitalize }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="no-results" id="dice-history-no-results">No rounds match that search.</p>
+  </div>
+  {% endif %}
 </main>
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
@@ -160,6 +214,7 @@
   }
   wireSearch("drinks-search", "drinks-list", "drinks-no-results");
   wireSearch("snacks-search", "snacks-list", "snacks-no-results");
+  wireSearch("dice-history-search", "dice-history-list", "dice-history-no-results");
 
   // --- Top Trumps search + genre filter + sort ---
   var ttSearch = document.getElementById("toptrumps-search");
@@ -302,6 +357,85 @@
       selA.addEventListener("change", renderRadar);
       selB.addEventListener("change", renderRadar);
       renderRadar();
+    }
+
+    // ---------- Dice Battle round replay - reuses radarDataset() above by
+    // shaping each side (Kev's film as scored by Andy; Andy's film as
+    // scored by Kev) into the same {title, first_watch, rewatch, romance,
+    // action, soundtrack, quote} shape the Top Trumps radar already
+    // expects, rather than duplicating the point/line styling. ----------
+    var diceRounds = {{ dice_battle_played|tojson }};
+    if (diceRounds.length) {
+      function diceSide(title, scores, bestLine) {
+        return {
+          title: title, first_watch: scores.first_watch, rewatch: scores.rewatch,
+          romance: scores.romance, action: scores.action, soundtrack: scores.soundtrack,
+          quote: bestLine,
+        };
+      }
+
+      var roundPicker = document.getElementById("dice-round-picker");
+      diceRounds.forEach(function (r, i) {
+        var opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = "#" + r.rank + " · " + r.kev_film + " vs " + r.andy_film;
+        roundPicker.appendChild(opt);
+      });
+      roundPicker.value = 0;
+
+      var diceChart = null;
+      function renderDiceRound() {
+        var r = diceRounds[parseInt(roundPicker.value, 10)];
+        var kevSide = diceSide(r.kev_film, r.andy_scores_kev, r.andy_best_line);
+        var andySide = diceSide(r.andy_film, r.kev_scores_andy, r.kev_best_line);
+        var data = {
+          labels: ["First Watch", "Rewatchability", "Romance", "Action", "Soundtrack"],
+          datasets: [radarDataset(kevSide, "#e8b452"), radarDataset(andySide, "#ff6f5c")],
+        };
+        if (diceChart) {
+          diceChart.data = data;
+          diceChart.update();
+        } else {
+          diceChart = new Chart(document.getElementById("dice-radar-chart"), {
+            type: "radar",
+            data: data,
+            options: {
+              scales: {
+                r: {
+                  min: 0, max: 100,
+                  angleLines: { color: "rgba(253,246,236,0.18)" },
+                  grid: { color: "rgba(253,246,236,0.18)" },
+                  pointLabels: { color: "#fdf6ec", font: { size: 11, weight: "600" } },
+                  ticks: { display: false, backdropColor: "transparent" },
+                },
+              },
+              plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec" } } },
+              elements: { line: { fill: true } },
+            },
+          });
+        }
+        var quotesEl = document.getElementById("dice-round-quotes");
+        var lines = [];
+        if (kevSide.quote) lines.push("<strong>" + kevSide.title + ":</strong> “" + kevSide.quote + "”");
+        if (andySide.quote) lines.push("<strong>" + andySide.title + ":</strong> “" + andySide.quote + "”");
+        quotesEl.innerHTML = lines.join("<br>");
+
+        var resultEl = document.getElementById("dice-round-result");
+        var winnerName = r.winner === "andy" ? "Andy" : "Kev";
+        resultEl.innerHTML = "🎲 Dice landed on <strong>" + r.dice_roll + "</strong>, and <strong>" + winnerName + "</strong> takes the round.";
+      }
+      roundPicker.addEventListener("change", renderDiceRound);
+      renderDiceRound();
+
+      // Clicking a round in the history list jumps the picker/radar to it,
+      // rather than the history list being purely read-only.
+      document.querySelectorAll(".dice-history-row").forEach(function (row) {
+        row.addEventListener("click", function () {
+          roundPicker.value = row.dataset.index;
+          renderDiceRound();
+          document.getElementById("dice-round-card").scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      });
     }
   }
 })();
