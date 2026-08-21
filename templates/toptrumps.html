@@ -60,7 +60,12 @@
   </div>
 
   <div class="toggle-panel" id="panel-drinks">
+    {% set has_drink_ingredients = episodes_with_drinks|selectattr('kev_drink_ingredients')|list or episodes_with_drinks|selectattr('andy_drink_ingredients')|list %}
+    {% if has_drink_ingredients %}
     <p class="intro-blurb" style="margin-bottom:20px;">The drink that represents each film, picked by Kev and Andy every episode. Tap or hover a drink with a dotted underline for the ingredients.</p>
+    {% else %}
+    <p class="intro-blurb" style="margin-bottom:20px;">The drink that represents each film, picked by Kev and Andy every episode.</p>
+    {% endif %}
     {% if episodes_with_drinks %}
     <div class="panel-controls">
       <input type="text" class="episode-search" id="drinks-search" placeholder="Search by film title...">
@@ -87,7 +92,12 @@
   </div>
 
   <div class="toggle-panel" id="panel-snacks">
+    {% set has_snack_ingredients = episodes_with_snacks|selectattr('snack_ingredients')|list %}
+    {% if has_snack_ingredients %}
     <p class="intro-blurb" style="margin-bottom:20px;">The snack that represents each film, picked by Kev and Andy every episode. Tap or hover a snack with a dotted underline for the ingredients.</p>
+    {% else %}
+    <p class="intro-blurb" style="margin-bottom:20px;">The snack that represents each film, picked by Kev and Andy every episode.</p>
+    {% endif %}
     {% if episodes_with_snacks %}
     <div class="panel-controls">
       <input type="text" class="episode-search" id="snacks-search" placeholder="Search by film title...">
