@@ -1171,10 +1171,16 @@ def compute_critics_vs_audience(episodes):
 
 
 def compute_leaderboard(episodes, field):
-    """[{film, value, season, genre}, ...] sorted highest-first for a numeric
-    field (explosions, deaths, animated_chars, box_office_adj, ...) - powers
-    the Stats page's interactive trivia leaderboard charts. Only includes
-    episodes where that field is actually known.
+    """[{film, value, season, genre, runtime}, ...] sorted highest-first for
+    a numeric field (explosions, deaths, animated_chars, box_office_adj,
+    ...) - powers the Stats page's interactive trivia leaderboard charts.
+    Only includes episodes where that field is actually known.
+
+    Carries "runtime" along (when known) so the trivia leaderboards (deaths/
+    explosions/animated characters) can offer a per-minute-of-runtime view
+    client-side, not just raw totals - without it, a 3-hour epic and a
+    90-minute film are compared on totals alone, which mostly just measures
+    "how long is this film" rather than anything about the film itself.
 
     Deliberately returns the FULL sorted list rather than truncating to a
     top N here - the Stats page slices out the top 10 or bottom 10 client
@@ -1183,7 +1189,13 @@ def compute_leaderboard(episodes, field):
     "least explosive" or "biggest box-office flops"), not just the top 10
     with the truncated tail unavailable."""
     points = [
-        {"film": ep["film_title"], "value": ep[field], "season": ep.get("season"), "genre": ep.get("genre")}
+        {
+            "film": ep["film_title"],
+            "value": ep[field],
+            "season": ep.get("season"),
+            "genre": ep.get("genre"),
+            "runtime": ep.get("runtime"),
+        }
         for ep in episodes
         if ep.get(field) is not None
     ]
@@ -1215,6 +1227,40 @@ def compute_box_office_leaderboard(episodes):
         if ep.get("box_office_adj") is not None
     ]
     points.sort(key=lambda p: p["value"], reverse=True)
+    return points
+
+
+def compute_budget_vs_boxoffice(episodes):
+    """[{film, budget, box_office, roi, audience, rank, season, genre,
+    toptrumps_slug}, ...] for the budget-vs-box-office bubble chart - only
+    films with both a budget and a box office figure on file (a budget
+    alone, or box office alone, can't place a point on this chart).
+
+    "roi" is (box_office - budget) / budget as a percentage - can go
+    negative (a loss) - computed once here rather than client-side so the
+    Total/ROI axis toggle is just picking which existing field to plot,
+    same pattern as the box office leaderboard's Total/US/International
+    toggle. "audience" (RT audience score, when known) drives the bubble
+    colour and "rank" drives its size - both optional extras layered on
+    top of the two axes that actually place the point, so a film missing
+    either still shows up, just as a default-sized/coloured bubble."""
+    points = []
+    for ep in episodes:
+        budget = ep.get("budget_adj")
+        box_office = ep.get("box_office_adj")
+        if budget is None or box_office is None or budget <= 0:
+            continue
+        points.append({
+            "film": ep["film_title"],
+            "budget": budget,
+            "box_office": box_office,
+            "roi": round((box_office - budget) / budget * 100, 1),
+            "audience": ep.get("rt_audience"),
+            "rank": ep.get("rank"),
+            "season": ep.get("season"),
+            "genre": ep.get("genre"),
+            "toptrumps_slug": ep.get("toptrumps_slug"),
+        })
     return points
 
 
@@ -1347,7 +1393,9 @@ def build():
     critics_vs_audience = compute_critics_vs_audience(episodes)
     explosions_leaderboard = compute_leaderboard(episodes, "explosions")
     deaths_leaderboard = compute_leaderboard(episodes, "deaths")
+    animated_leaderboard = compute_leaderboard(episodes, "animated_chars")
     box_office_leaderboard = compute_box_office_leaderboard(episodes)
+    budget_vs_boxoffice = compute_budget_vs_boxoffice(episodes)
     toptrumps_stats = load_toptrumps_stats(config.get("toptrumps_stats_sheet_url", ""))
     # Sorted alphabetically so the two Top Trumps radar dropdowns are easy
     # to scan - only films with a complete set of four ratings are in here
@@ -1392,7 +1440,9 @@ def build():
         "critics_vs_audience": critics_vs_audience,
         "explosions_leaderboard": explosions_leaderboard,
         "deaths_leaderboard": deaths_leaderboard,
+        "animated_leaderboard": animated_leaderboard,
         "box_office_leaderboard": box_office_leaderboard,
+        "budget_vs_boxoffice": budget_vs_boxoffice,
         "radar_films": radar_films,
         "toptrumps_genres": toptrumps_genres,
         "episode_genres": episode_genres,

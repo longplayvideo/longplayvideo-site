@@ -5,7 +5,7 @@
   <h2 class="section-title">The Stats Reel</h2>
   <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list. Filter everything by genre below, or hover a dot on the scatter chart for that film's card.</p>
 
-  {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
+  {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or animated_leaderboard or box_office_leaderboard or budget_vs_boxoffice %}
   <div class="toggle-group" style="margin-bottom:24px;">
     <button type="button" class="toggle-btn active" data-season="all">All Episodes</button>
     <button type="button" class="toggle-btn" data-season="1">Season 1</button>
@@ -26,18 +26,39 @@
   {% else %}
   <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
   {% endif %}
-  {% if explosions_leaderboard %}
+  {% if critics_vs_audience %}
   <div class="chart-card">
-    <h4>Most Explosive Films</h4>
-    <canvas id="explosions-chart" height="240"></canvas>
+    <div class="chart-card-head">
+      <h4>Most Divisive</h4>
+    </div>
+    <p class="chart-card-note">Where critics and audiences disagreed the most - Rotten Tomatoes score gap, biggest first.</p>
+    <div class="split-leaderboards">
+      <div class="split-leaderboard">
+        <h5>Critic Darlings <span class="split-leaderboard-sub">critics scored it higher</span></h5>
+        <canvas id="critic-darlings-chart" height="240"></canvas>
+      </div>
+      <div class="split-leaderboard">
+        <h5>People's Champions <span class="split-leaderboard-sub">audiences scored it higher</span></h5>
+        <canvas id="peoples-champs-chart" height="240"></canvas>
+      </div>
+    </div>
   </div>
-  {% else %}
-  <img class="stats-chart" src="{{ root }}static/stats/explosions-leaderboard.png" alt="Most explosive films leaderboard">
   {% endif %}
-  {% if deaths_leaderboard %}
+  {% if explosions_leaderboard or deaths_leaderboard or animated_leaderboard %}
   <div class="chart-card">
-    <h4>Highest Body Count</h4>
-    <canvas id="deaths-chart" height="240"></canvas>
+    <div class="chart-card-head">
+      <h4 id="trivia-leaderboard-title">Highest Body Count</h4>
+      <div class="boxoffice-toggle">
+        <button type="button" class="btn btn-small boxoffice-metric-btn active" data-trivia="deaths">Deaths</button>
+        <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-trivia="explosions">Explosions</button>
+        <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-trivia="animated_chars">Animated Characters</button>
+      </div>
+    </div>
+    <div class="boxoffice-toggle" style="margin-top:8px;">
+      <button type="button" class="btn btn-small trivia-density-btn active" data-density="total">Total</button>
+      <button type="button" class="btn btn-small btn-ghost trivia-density-btn" data-density="perminute">Per Minute of Runtime</button>
+    </div>
+    <canvas id="trivia-chart" height="240"></canvas>
   </div>
   {% endif %}
   {% if box_office_leaderboard %}
@@ -51,6 +72,19 @@
       </div>
     </div>
     <canvas id="boxoffice-chart" height="240"></canvas>
+  </div>
+  {% endif %}
+  {% if budget_vs_boxoffice %}
+  <div class="chart-card">
+    <div class="chart-card-head">
+      <h4>Budget vs Box Office</h4>
+      <div class="boxoffice-toggle">
+        <button type="button" class="btn btn-small boxoffice-metric-btn active" data-budgetaxis="box_office">Box Office</button>
+        <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-budgetaxis="roi">Return on Investment</button>
+      </div>
+    </div>
+    <p class="chart-card-note">Bubble size is the film's rank on its host's list (bigger = higher favourite); colour is its Rotten Tomatoes audience score, red to gold. Based on theatrical box office only, so streaming-first releases will show as underperforming even if that's not really how they made their money.</p>
+    <canvas id="budget-boxoffice-chart" height="280"></canvas>
   </div>
   {% endif %}
   {% if genre_breakdown %}
@@ -69,7 +103,7 @@
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
+{% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or animated_leaderboard or box_office_leaderboard or budget_vs_boxoffice %}
 <!-- Self-hosted rather than loaded from a CDN - charts were rendering
      blank for real visitors even though everything worked in testing,
      which pointed at the cdnjs.cloudflare.com script simply not loading
@@ -110,14 +144,19 @@
     var caData = {{ critics_vs_audience|tojson }};
     var explosionsData = {{ explosions_leaderboard|tojson }};
     var deathsData = {{ deaths_leaderboard|tojson }};
+    var animatedData = {{ animated_leaderboard|tojson }};
     var boxOfficeData = {{ box_office_leaderboard|tojson }};
+    var budgetBoxOfficeData = {{ budget_vs_boxoffice|tojson }};
     var toptrumpsCards = {{ toptrumps_cards|tojson }};
 
     var slugToFile = {};
     toptrumpsCards.forEach(function (c) { slugToFile[c.slug] = c.file; });
 
     var charts = {}; // keyed by canvas id, created once then updated in place
-    var state = { season: "all", genre: null, boxOfficeMetric: "value" };
+    var state = {
+      season: "all", genre: null, boxOfficeMetric: "value",
+      triviaMetric: "deaths", triviaDensity: "total", budgetAxis: "box_office",
+    };
 
     function bySeason(list) {
       if (state.season === "all") return list;
@@ -333,6 +372,162 @@
       });
     }
 
+    // ---------- Most Divisive - Critic Darlings / People's Champions ----------
+    // Derived from the same critics-vs-audience data already loaded above,
+    // not a separate sheet/field - "gap" is critics minus audience, so a
+    // positive gap is a Critic Darling (critics scored it higher) and a
+    // negative gap, sign-flipped to a positive display value, is a
+    // People's Champion (audience scored it higher). Splitting into two
+    // charts rather than one signed leaderboard is what actually surfaces
+    // the "sign flip" - each chart IS one side of that flip.
+    function renderDivisiveCharts() {
+      var withGap = applyFilters(caData).map(function (d) {
+        return { film: d.film, gap: d.critics - d.audience, season: d.season, genre: d.genre };
+      });
+      var darlings = withGap
+        .filter(function (d) { return d.gap > 0; })
+        .map(function (d) { return { film: d.film, value: d.gap, season: d.season, genre: d.genre }; })
+        .sort(function (a, b) { return b.value - a.value; });
+      var champs = withGap
+        .filter(function (d) { return d.gap < 0; })
+        .map(function (d) { return { film: d.film, value: -d.gap, season: d.season, genre: d.genre }; })
+        .sort(function (a, b) { return b.value - a.value; });
+      renderLeaderboard("critic-darlings-chart", darlings, "#e8b452", "Critics ahead by", function (v) { return v.toFixed(0) + " pts"; });
+      renderLeaderboard("peoples-champs-chart", champs, "#3fb6b0", "Audience ahead by", function (v) { return v.toFixed(0) + " pts"; });
+    }
+
+    // ---------- Trivia leaderboard - Deaths/Explosions/Animated Characters,
+    // each as a Total or Per Minute of Runtime view. The tooltip callback
+    // reads state.triviaMetric/triviaDensity live (rather than closing over
+    // a label/formatValue captured at chart-creation time) because
+    // .update() only touches the chart's data, not its options - a
+    // closure captured on first render would otherwise keep showing
+    // whichever metric was selected first, forever, regardless of which
+    // toggle button is actually active. ----------
+    var TRIVIA_DATASETS = {
+      deaths: { data: deathsData, color: "#3fb6b0", label: "Deaths", title: "Highest Body Count" },
+      explosions: { data: explosionsData, color: "#ff6f5c", label: "Explosions", title: "Most Explosive Films" },
+      animated_chars: { data: animatedData, color: "#e8b452", label: "Animated Characters", title: "Most Animated Characters" },
+    };
+
+    function renderTriviaChart() {
+      var canvas = document.getElementById("trivia-chart");
+      if (!canvas) return;
+      var cfg = TRIVIA_DATASETS[state.triviaMetric];
+      var titleEl = document.getElementById("trivia-leaderboard-title");
+      if (titleEl) titleEl.textContent = cfg.title;
+
+      var perMinute = state.triviaDensity === "perminute";
+      var slice = applyFilters(cfg.data)
+        .filter(function (d) { return !perMinute || (d.runtime && d.runtime > 0); })
+        .map(function (d) { return { film: d.film, value: perMinute ? d.value / d.runtime : d.value }; })
+        .sort(function (a, b) { return b.value - a.value; })
+        .slice(0, 10);
+      var labels = slice.map(function (d) { return d.film; });
+      var values = slice.map(function (d) { return d.value; });
+      var legendLabel = perMinute ? cfg.label + " per minute" : cfg.label;
+
+      if (charts["trivia-chart"]) {
+        var chart = charts["trivia-chart"];
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.data.datasets[0].label = legendLabel;
+        chart.data.datasets[0].backgroundColor = cfg.color;
+        chart.update();
+        return;
+      }
+      charts["trivia-chart"] = new Chart(canvas, {
+        type: "bar",
+        data: { labels: labels, datasets: [{ label: legendLabel, data: values, backgroundColor: cfg.color }] },
+        options: {
+          indexAxis: "y",
+          animation: { duration: 600, easing: "easeOutQuart" },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  var liveCfg = TRIVIA_DATASETS[state.triviaMetric];
+                  var livePerMinute = state.triviaDensity === "perminute";
+                  var liveLabel = livePerMinute ? liveCfg.label + " per minute" : liveCfg.label;
+                  return liveLabel + ": " + (livePerMinute ? ctx.raw.toFixed(2) + " / min" : ctx.raw);
+                },
+              },
+            },
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            y: { ticks: { color: "#fdf6ec" }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    // ---------- Budget vs Box Office bubble - bubble size is the film's
+    // rank (bigger = bigger favourite), colour is its RT audience score
+    // (coral -> gold, low -> high), x/y axes are budget and either total
+    // box office or ROI%, toggled the same way the box office leaderboard
+    // switches Total/US/International. ----------
+    function audienceToColor(score) {
+      if (score == null) return "rgba(122,31,31,0.5)"; // unknown score - dim red-deep
+      var t = Math.max(0, Math.min(1, (score - 40) / 60)); // 40-100% mapped to 0-1
+      var from = [0xff, 0x6f, 0x5c]; // --coral
+      var to = [0xe8, 0xb4, 0x52]; // --gold
+      var rgb = from.map(function (c, i) { return Math.round(c + (to[i] - c) * t); });
+      return "rgb(" + rgb.join(",") + ")";
+    }
+    function rankToRadius(rank) {
+      if (rank == null) return 6;
+      var t = Math.max(0, Math.min(1, (100 - rank) / 99)); // rank 1 -> 1, rank 100 -> 0
+      return 5 + t * 15; // 5px..20px
+    }
+
+    function renderBudgetBoxOfficeChart() {
+      var canvas = document.getElementById("budget-boxoffice-chart");
+      if (!canvas) return;
+      var yField = state.budgetAxis === "roi" ? "roi" : "box_office";
+      var yLabel = state.budgetAxis === "roi" ? "Return on Investment (%)" : "Box Office ($m, inflation-adjusted)";
+      var data = applyFilters(budgetBoxOfficeData).map(function (d) {
+        return {
+          x: d.budget, y: d[yField], r: rankToRadius(d.rank),
+          film: d.film, budget: d.budget, box_office: d.box_office, roi: d.roi, audience: d.audience,
+        };
+      });
+      var colors = data.map(function (d) { return audienceToColor(d.audience); });
+
+      if (charts["budget-boxoffice-chart"]) {
+        var chart = charts["budget-boxoffice-chart"];
+        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].backgroundColor = colors;
+        chart.options.scales.y.title.text = yLabel;
+        chart.update();
+        return;
+      }
+      charts["budget-boxoffice-chart"] = new Chart(canvas, {
+        type: "bubble",
+        data: { datasets: [{ label: "Films", data: data, backgroundColor: colors }] },
+        options: {
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  var d = ctx.raw;
+                  var lines = [d.film, "Budget: $" + Math.round(d.budget) + "m", "Box Office: $" + Math.round(d.box_office) + "m", "ROI: " + d.roi + "%"];
+                  if (d.audience != null) lines.push("Audience: " + d.audience + "%");
+                  return lines;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { title: { display: true, text: "Budget ($m, inflation-adjusted)", color: "#fdf6ec" }, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            y: { title: { display: true, text: yLabel, color: "#fdf6ec" }, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+          },
+        },
+      });
+    }
+
     // ---------- Box office - Total/Domestic/International toggle ----------
     var BOXOFFICE_METRIC_LABELS = { value: "Total Box Office", dom: "US Box Office", intl: "International Box Office" };
 
@@ -376,9 +571,10 @@
     function renderAll() {
       renderGenreChart();
       renderCriticsAudienceChart();
-      renderLeaderboard("explosions-chart", explosionsData, "#ff6f5c", "Explosions", function (v) { return v; });
-      renderLeaderboard("deaths-chart", deathsData, "#3fb6b0", "Deaths", function (v) { return v; });
+      renderDivisiveCharts();
+      renderTriviaChart();
       renderBoxOfficeChart();
+      renderBudgetBoxOfficeChart();
     }
 
     renderAll();
@@ -406,6 +602,51 @@
         btn.classList.remove("btn-ghost");
         state.boxOfficeMetric = btn.dataset.metric;
         renderBoxOfficeChart();
+      });
+    });
+
+    var triviaMetricBtns = document.querySelectorAll(".boxoffice-metric-btn[data-trivia]");
+    triviaMetricBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.trivia === state.triviaMetric) return;
+        triviaMetricBtns.forEach(function (b) {
+          b.classList.remove("active");
+          b.classList.add("btn-ghost");
+        });
+        btn.classList.add("active");
+        btn.classList.remove("btn-ghost");
+        state.triviaMetric = btn.dataset.trivia;
+        renderTriviaChart();
+      });
+    });
+
+    var triviaDensityBtns = document.querySelectorAll(".trivia-density-btn[data-density]");
+    triviaDensityBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.density === state.triviaDensity) return;
+        triviaDensityBtns.forEach(function (b) {
+          b.classList.remove("active");
+          b.classList.add("btn-ghost");
+        });
+        btn.classList.add("active");
+        btn.classList.remove("btn-ghost");
+        state.triviaDensity = btn.dataset.density;
+        renderTriviaChart();
+      });
+    });
+
+    var budgetAxisBtns = document.querySelectorAll(".boxoffice-metric-btn[data-budgetaxis]");
+    budgetAxisBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.budgetaxis === state.budgetAxis) return;
+        budgetAxisBtns.forEach(function (b) {
+          b.classList.remove("active");
+          b.classList.add("btn-ghost");
+        });
+        btn.classList.add("active");
+        btn.classList.remove("btn-ghost");
+        state.budgetAxis = btn.dataset.budgetaxis;
+        renderBudgetBoxOfficeChart();
       });
     });
   }

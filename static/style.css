@@ -678,6 +678,25 @@ select.episode-search option {
 .boxoffice-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
 .boxoffice-metric-btn { white-space: nowrap; }
 
+/* Small explanatory line under a chart-card's heading/toggle row, for
+   charts that need a sentence of context (what a bubble's size/colour
+   means, a data caveat) that doesn't fit in the title itself. */
+.chart-card-note { font-size: 0.82rem; color: #cdbfe0; margin: 0 0 14px; text-align: center; }
+
+/* Most Divisive - two mini leaderboards side by side (stacked on narrow
+   screens) inside one chart-card, rather than two separate chart-cards -
+   they're one comparison split into two directions, not two unrelated
+   charts. */
+.split-leaderboards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 700px) { .split-leaderboards { grid-template-columns: 1fr; } }
+.split-leaderboard h5 {
+  margin: 0 0 10px;
+  color: var(--gold-light);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.split-leaderboard-sub { display: block; font-size: 0.75rem; font-weight: 400; color: #cdbfe0; margin-top: 2px; }
+
 /* Active genre-filter indicator above the doughnut chart, shown once a
    slice has been clicked (see stats.html's updateGenreChip()). */
 .genre-filter-chip {
