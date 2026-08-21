@@ -13,7 +13,12 @@
   </div>
 
   <div class="toggle-panel active" id="panel-toptrumps">
+    {% set has_quotes = radar_films|selectattr('quote')|list %}
+    {% if has_quotes %}
     <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote.</p>
+    {% else %}
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action and Soundtrack.</p>
+    {% endif %}
     {% if radar_films and radar_films|length > 1 %}
     <div class="chart-card" id="radar-card">
       <h4>Card Clash</h4>
