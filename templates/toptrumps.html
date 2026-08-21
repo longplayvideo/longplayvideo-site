@@ -3,7 +3,6 @@
 {% block content %}
 <main>
   <h2 class="section-title">Bonus Features</h2>
-  <p class="intro-blurb" style="margin-bottom:20px;">Every film's Top Trumps card, and the drink and snack that represents it - picked by Kev and Andy every episode.</p>
 
   <div class="toggle-group">
     <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
@@ -30,6 +29,8 @@
       </div>
       <div class="cc-clash" id="card-clash"></div>
       <p class="radar-quotes" id="radar-quotes"></p>
+      <p class="chart-card-note" style="margin-top:18px;">Stat breakdown - each film's own shape, First Watch through Soundtrack.</p>
+      <canvas id="card-clash-bar-chart" height="90"></canvas>
     </div>
     {% endif %}
     {#
@@ -160,16 +161,16 @@
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if dice_battle_played %}
-<!-- Gated on dice_battle_played, not radar_films - Card Clash itself
-     doesn't need Chart.js at all (see the JS below), only the Dice
-     Battle round replay's radar does. Tying this to radar_films instead
-     was a real bug: a transient fetch failure on the (unrelated) Top
-     Trumps stats sheet zeroed out radar_films for one build, which
-     silently dropped this script tag too and broke Dice Battle's
-     picker/radar along with it, even though Dice Battle's own data had
-     loaded fine. Self-hosted rather than loaded from a CDN - see
-     stats.html for why. -->
+{% if dice_battle_played or (radar_films and radar_films|length > 1) %}
+<!-- OR, not just dice_battle_played - Card Clash's stat-breakdown bar
+     chart needs Chart.js too now, alongside Dice Battle's radar. Kept
+     as an OR rather than going back to relying on just one condition
+     (or an AND) on purpose: either data source alone is enough to load
+     this script, so a fetch failure on ONE of the two sheets still
+     can't cascade into breaking the other feature - see the commit that
+     first split this off radar_films alone for what happens when it
+     can. Self-hosted rather than loaded from a CDN - see stats.html for
+     why. -->
 <script src="{{ root }}static/chart.umd.min.js"></script>
 {% endif %}
 <script>
@@ -336,11 +337,73 @@
         '</div>';
     }
 
+    // Brand palette, not poster-derived colour - a 100%-stacked bar only
+    // works as a system if the same colour means the same category on
+    // every bar; a colour pulled from each film's own poster would mean
+    // "Action" is a different colour on every film, which defeats the
+    // entire point of using colour here. See conversation for the full
+    // reasoning.
+    var CARD_CLASH_COLORS = {
+      first_watch: "#e8b452",
+      rewatch: "#ff6f5c",
+      romance: "#ff4fd8",
+      action: "#3fb6b0",
+      soundtrack: "#f5d68a",
+    };
+
+    var statBarChart = null;
+    function renderStatBreakdown(filmA, filmB) {
+      var canvas = document.getElementById("card-clash-bar-chart");
+      // Card Clash itself has no Chart.js dependency (see the panel-level
+      // script tag condition above) - this breakdown chart is the one
+      // piece of Card Clash that does need it, so it quietly does
+      // nothing if Chart.js didn't load, rather than throwing and taking
+      // the cards (which have already rendered fine above) down with it.
+      if (!canvas || !window.Chart) return;
+
+      function percentages(film) {
+        var total = CARD_CLASH_CATEGORIES.reduce(function (sum, c) { return sum + (film[c.key] || 0); }, 0);
+        return CARD_CLASH_CATEGORIES.map(function (c) { return total ? (film[c.key] || 0) / total * 100 : 0; });
+      }
+      var pctA = percentages(filmA), pctB = percentages(filmB);
+      var labels = [filmA.title, filmB.title];
+      var datasets = CARD_CLASH_CATEGORIES.map(function (c, i) {
+        return { label: c.label, data: [pctA[i], pctB[i]], backgroundColor: CARD_CLASH_COLORS[c.key] };
+      });
+
+      if (statBarChart) {
+        statBarChart.data.labels = labels;
+        statBarChart.data.datasets.forEach(function (ds, i) { ds.data = datasets[i].data; });
+        statBarChart.update();
+        return;
+      }
+      statBarChart = new Chart(canvas, {
+        type: "bar",
+        data: { labels: labels, datasets: datasets },
+        options: {
+          indexAxis: "y",
+          scales: {
+            x: {
+              stacked: true, min: 0, max: 100,
+              ticks: { color: "#fdf6ec", callback: function (v) { return v + "%"; } },
+              grid: { color: "rgba(253,246,236,0.08)" },
+            },
+            y: { stacked: true, ticks: { color: "#fdf6ec" }, grid: { display: false } },
+          },
+          plugins: {
+            legend: { position: "bottom", labels: { color: "#fdf6ec", font: { size: 12 }, boxWidth: 14 } },
+            tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + Math.round(ctx.raw) + "%"; } } },
+          },
+        },
+      });
+    }
+
     function renderCardClash() {
       var filmA = radarFilms[parseInt(selA.value, 10)];
       var filmB = radarFilms[parseInt(selB.value, 10)];
       var container = document.getElementById("card-clash");
       container.innerHTML = ccCardHtml(filmA, "a") + '<span class="cc-vs">VS</span>' + ccCardHtml(filmB, "b");
+      renderStatBreakdown(filmA, filmB);
 
       var cardA = container.querySelector('.cc-card[data-side="a"]');
       var cardB = container.querySelector('.cc-card[data-side="b"]');
