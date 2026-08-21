@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}DVD Extras - {{ config.site_title }}{% endblock %}
+{% block title %}Bonus Features - {{ config.site_title }}{% endblock %}
 {% block content %}
 <main>
-  <h2 class="section-title">DVD Extras</h2>
-  <p class="intro-blurb" style="margin-bottom:20px;">The bonus features: every film's Top Trumps card, and the drink and snack that represents it - picked by Kev and Andy every episode.</p>
+  <h2 class="section-title">Bonus Features</h2>
+  <p class="intro-blurb" style="margin-bottom:20px;">Every film's Top Trumps card, and the drink and snack that represents it - picked by Kev and Andy every episode.</p>
 
   <div class="toggle-group">
     <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
@@ -12,7 +12,7 @@
   </div>
 
   <div class="toggle-panel active" id="panel-toptrumps">
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote. New cards get added as we go, drop a new image into <code>static/toptrumps/</code> and it shows up here automatically.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote.</p>
     {% if radar_films and radar_films|length > 1 %}
     <div class="chart-card" id="radar-card">
       <h4>Top Trumps Head-to-Head</h4>

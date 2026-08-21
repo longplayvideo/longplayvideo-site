@@ -819,12 +819,19 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   margin-bottom: 18px;
 }
 
-/* --- Sponsor block ---
+/* --- Partner/sponsor attribution card ---
+   Deliberately NOT named .sponsor-* - a lot of ad blockers' default
+   cosmetic filter lists auto-hide any element with "sponsor" in its
+   class name, since that pattern usually marks actual ad content
+   elsewhere on the web. This is a genuine attribution, not an ad, but
+   the filters can't tell the difference, so a generic name sidesteps
+   the false positive instead of fighting it. See also
+   .partner-footer-logo below, same reasoning.
    Same card language as .chart-card (dark purple, soft gold border, drop
    shadow) rather than its own one-off style, so it reads as part of the
    same site instead of a plain centred stack of text. Horizontal on
    wider screens (logo left, copy + button right); stacks on mobile. */
-.sponsor-block {
+.partner-card {
   display: flex;
   align-items: center;
   gap: 28px;
@@ -837,9 +844,9 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   border: 2px solid rgba(232,180,82,0.3);
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
-.sponsor-logo { flex: 0 0 auto; width: 180px; max-width: 40%; height: auto; border-radius: 8px; }
-.sponsor-body { min-width: 0; }
-.sponsor-eyebrow {
+.partner-logo { flex: 0 0 auto; width: 180px; max-width: 40%; height: auto; border-radius: 8px; }
+.partner-body { min-width: 0; }
+.partner-eyebrow {
   margin: 0 0 6px;
   color: var(--gold-light);
   font-size: 0.85rem;
@@ -847,10 +854,10 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.sponsor-body p:not(.sponsor-eyebrow) { margin: 0 0 16px; }
+.partner-body p:not(.partner-eyebrow) { margin: 0 0 16px; }
 @media (max-width: 560px) {
-  .sponsor-block { flex-direction: column; text-align: center; padding: 28px 22px; }
-  .sponsor-logo { width: 160px; max-width: 60%; }
+  .partner-card { flex-direction: column; text-align: center; padding: 28px 22px; }
+  .partner-logo { width: 160px; max-width: 60%; }
 }
 
 /* --- Watch & Follow --- */
@@ -977,7 +984,7 @@ footer.site-footer a { color: var(--gold-light); }
 .social-links { margin-top: 14px; display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; }
 .social-links a { display: inline-flex; align-items: center; gap: 6px; }
 .social-links img { width: 22px; height: 22px; vertical-align: middle; }
-.social-links .sponsor-footer-logo { width: auto; height: 20px; border-radius: 3px; }
+.social-links .partner-footer-logo { width: auto; height: 20px; border-radius: 3px; }
 
 .history-block {
   display: flex;

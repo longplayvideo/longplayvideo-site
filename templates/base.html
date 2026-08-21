@@ -24,7 +24,7 @@
     <a href="{{ root }}index.html">Home</a>
     <a href="{{ root }}starthere.html">Start Here</a>
     <a href="{{ root }}episodes.html">Episodes</a>
-    <a href="{{ root }}toptrumps.html">DVD Extras</a>
+    <a href="{{ root }}toptrumps.html">Bonus Features</a>
     <a href="{{ root }}stats.html">Stats</a>
     <a href="{{ root }}shop.html">Shop</a>
     <a href="{{ root }}about.html">About</a>
@@ -62,7 +62,7 @@
     {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-apple-podcasts.png" alt=""> Apple Podcasts</a>{% endif %}
     {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-amazon-music.png" alt=""> Amazon Music</a>{% endif %}
     {% if config.rss_url and "PASTE_" not in config.rss_url %}<a href="{{ config.rss_url }}" target="_blank" rel="noopener"><img src="{{ root }}static/icon-rss.png" alt=""> RSS</a>{% endif %}
-    {% if config.outout_url and "PASTE_" not in config.outout_url %}<a href="{{ config.outout_url }}" target="_blank" rel="noopener"><img class="sponsor-footer-logo" src="{{ root }}static/outout-logo.jpg" alt="OutOut"></a>{% endif %}
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}<a href="{{ config.outout_url }}" target="_blank" rel="noopener"><img class="partner-footer-logo" src="{{ root }}static/outout-logo.jpg" alt="OutOut"></a>{% endif %}
   </div>
 </footer>
 </body>
