@@ -138,6 +138,14 @@
       <p class="dice-round-result" id="dice-round-result"></p>
     </div>
 
+    {% if dice_battle_played|length >= 5 %}
+    <div class="chart-card">
+      <h4>Who's Harsher?</h4>
+      <p class="chart-card-note">A 5-round moving average of the score each host gives the other's picks. They're never scoring the same film - Andy rates that week's Kev pick, Kev rates the matching Andy pick - so this is each host's average generosity as a critic over time, not a head-to-head on identical films. With {{ dice_battle_played|length }} rounds on the board so far, treat this as an early trend, not a settled verdict.</p>
+      <canvas id="dice-trend-chart" height="200"></canvas>
+    </div>
+    {% endif %}
+
     <div class="panel-controls">
       <input type="text" class="episode-search" id="dice-history-search" placeholder="Search by film title...">
     </div>
@@ -511,6 +519,53 @@
       }
       roundPicker.addEventListener("change", renderDiceRound);
 
+      // ---------- "Who's Harsher?" trend - a 5-round moving average of
+      // each host's average score given, in chronological (air) order.
+      // Rank ascending is most-recent-first everywhere else on this page
+      // (see load_dice_battle's docstring), but a trend reads left-to-
+      // right as time passing, so this sorts the opposite way just for
+      // this chart. ----------
+      function avgScore(scores) {
+        var vals = [scores.first_watch, scores.rewatch, scores.romance, scores.action, scores.soundtrack]
+          .filter(function (v) { return v != null; });
+        return vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+      }
+      function movingAverage(values, windowSize) {
+        return values.map(function (_, i) {
+          var slice = values.slice(Math.max(0, i - windowSize + 1), i + 1).filter(function (v) { return v != null; });
+          return slice.length ? slice.reduce(function (a, b) { return a + b; }, 0) / slice.length : null;
+        });
+      }
+      function renderTrendChart() {
+        var canvas = document.getElementById("dice-trend-chart");
+        if (!canvas) return;
+        var chrono = diceRounds.slice().sort(function (a, b) { return b.rank - a.rank; });
+        var labels = chrono.map(function (r) { return "#" + r.rank; });
+        var andyTrend = movingAverage(chrono.map(function (r) { return avgScore(r.andy_scores_kev); }), 5);
+        var kevTrend = movingAverage(chrono.map(function (r) { return avgScore(r.kev_scores_andy); }), 5);
+        new Chart(canvas, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              { label: "Kev's scores", data: kevTrend, borderColor: "#e8b452", backgroundColor: "transparent", borderWidth: 2.5, pointRadius: 0, tension: 0.3 },
+              { label: "Andy's scores", data: andyTrend, borderColor: "#ff6f5c", backgroundColor: "transparent", borderWidth: 2.5, pointRadius: 0, tension: 0.3 },
+            ],
+          },
+          options: {
+            aspectRatio: 2.2,
+            scales: {
+              x: { ticks: { color: "#fdf6ec", maxTicksLimit: 8 }, grid: { display: false } },
+              y: { min: 0, max: 100, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            },
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#fdf6ec", font: { size: 12 } } },
+              tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + Math.round(ctx.raw) + "/100"; } } },
+            },
+          },
+        });
+      }
+
       // Chart.js measures a canvas's size from its parent the moment
       // it's constructed - building this chart immediately (Top Trumps
       // is the default active tab, so #panel-dicebattle is display:none
@@ -524,6 +579,7 @@
         if (diceRendered) return;
         diceRendered = true;
         renderDiceRound();
+        renderTrendChart();
       }
       var diceBattleTabBtn = document.querySelector('.toggle-btn[data-panel="panel-dicebattle"]');
       if (diceBattleTabBtn) diceBattleTabBtn.addEventListener("click", ensureDiceRendered);
