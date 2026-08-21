@@ -27,38 +27,15 @@
       <p class="radar-quotes" id="radar-quotes"></p>
     </div>
     {% endif %}
-    {% if toptrumps_cards %}
-    <div class="panel-controls">
-      <input type="text" class="episode-search" id="toptrumps-search" placeholder="Search by film title...">
-      <select class="episode-search" id="toptrumps-genre-filter">
-        <option value="all">All Genres</option>
-        {% for g in toptrumps_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
-      </select>
-      <select class="episode-search" id="toptrumps-sort">
-        <option value="default">Sort: Newest cards</option>
-        <option value="title-asc">Title (A-Z)</option>
-        <option value="imdb-desc">IMDb Rating (High-Low)</option>
-        <option value="rt-desc">Audience Score (High-Low)</option>
-      </select>
-    </div>
-    <div class="toptrumps-grid" id="toptrumps-grid">
-      {% for card in toptrumps_cards %}
-      <a class="toptrumps-card" id="{{ card.slug }}" href="{{ root }}static/toptrumps/{{ card.file }}" target="_blank" rel="noopener"
-         data-title="{{ card.title|lower }}" data-genre="{{ card.genre or '' }}"
-         data-imdb="{{ card.imdb_rating if card.imdb_rating is not none else '' }}"
-         data-rt="{{ card.rt_audience if card.rt_audience is not none else '' }}">
-        {% if loop.index0 < 8 %}
-        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="eager" fetchpriority="high">
-        {% else %}
-        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="lazy">
-        {% endif %}
-      </a>
-      {% endfor %}
-    </div>
-    <p class="no-results" id="toptrumps-no-results">No cards match that search.</p>
-    {% else %}
-    <div class="empty-state">No Top Trumps cards yet. Drop image files into <code>static/toptrumps/</code> and they'll appear here on the next rebuild.</div>
-    {% endif %}
+    {#
+      The browsable grid of individual Top Trumps card images used to live
+      here. Pulled for now (not deleted from the data side - toptrumps_cards/
+      toptrumps_genres are both still computed in generate_site.py, untouched)
+      while the real per-film card art gets designed - those cards are
+      earmarked to become the Card Clash poster art above once the full set
+      exists, and this grid may come back afterwards as a browsable gallery,
+      or get replaced with a stat-profile chart instead. See conversation.
+    #}
   </div>
 
   <div class="toggle-panel" id="panel-drinks">
