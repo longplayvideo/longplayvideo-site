@@ -36,7 +36,7 @@ a { color: var(--gold-light); text-decoration: none; }
 a:hover { text-decoration: underline; color: var(--teal); }
 
 header.site-header {
-  background: var(--purple-dark);
+  background: linear-gradient(90deg, var(--red-dark), var(--purple-dark) 50%, var(--teal-dark));
   color: var(--cream);
   padding: 18px 24px;
   display: flex;

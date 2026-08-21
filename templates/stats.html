@@ -477,19 +477,33 @@
       return "rgb(" + rgb.join(",") + ")";
     }
     function rankToRadius(rank) {
-      if (rank == null) return 6;
+      if (rank == null) return 4;
       var t = Math.max(0, Math.min(1, (100 - rank) / 99)); // rank 1 -> 1, rank 100 -> 0
-      return 5 + t * 15; // 5px..20px
+      return 3 + t * 9; // 3px..12px - halved from the original 5..20px, which crowded the chart
     }
+
+    // Log scales are undefined at zero/negative, so a $0m box office (a
+    // couple of films do show that - straight-to-video/streaming titles
+    // with no real theatrical gross) can't be plotted honestly on a log
+    // axis. Floored to a nominal near-zero for PLOTTING position only;
+    // the tooltip still shows the real figure via the "box_office" field
+    // on the point, never this floored value.
+    var LOG_FLOOR = 0.05;
 
     function renderBudgetBoxOfficeChart() {
       var canvas = document.getElementById("budget-boxoffice-chart");
       if (!canvas) return;
-      var yField = state.budgetAxis === "roi" ? "roi" : "box_office";
-      var yLabel = state.budgetAxis === "roi" ? "Return on Investment (%)" : "Box Office ($m, inflation-adjusted)";
+      var onRoi = state.budgetAxis === "roi";
+      var yField = onRoi ? "roi" : "box_office";
+      var yLabel = onRoi ? "Return on Investment (%)" : "Box Office ($m, inflation-adjusted)";
+      // ROI can be negative (a loss), so it can never be log-scaled - only
+      // the Box Office view gets a log y-axis. Budget (x) is always > 0
+      // (filtered server-side), so it's always safe to log.
+      var yType = onRoi ? "linear" : "logarithmic";
       var data = applyFilters(budgetBoxOfficeData).map(function (d) {
+        var rawY = d[yField];
         return {
-          x: d.budget, y: d[yField], r: rankToRadius(d.rank),
+          x: d.budget, y: (!onRoi && rawY <= 0) ? LOG_FLOOR : rawY, r: rankToRadius(d.rank),
           film: d.film, budget: d.budget, box_office: d.box_office, roi: d.roi, audience: d.audience,
         };
       });
@@ -500,12 +514,18 @@
         chart.data.datasets[0].data = data;
         chart.data.datasets[0].backgroundColor = colors;
         chart.options.scales.y.title.text = yLabel;
+        chart.options.scales.y.type = yType;
         chart.update();
         return;
       }
       charts["budget-boxoffice-chart"] = new Chart(canvas, {
         type: "bubble",
-        data: { datasets: [{ label: "Films", data: data, backgroundColor: colors }] },
+        data: {
+          datasets: [{
+            label: "Films", data: data, backgroundColor: colors,
+            borderColor: "rgba(253,246,236,0.6)", borderWidth: 1,
+          }],
+        },
         options: {
           plugins: {
             legend: { display: false },
@@ -521,8 +541,16 @@
             },
           },
           scales: {
-            x: { title: { display: true, text: "Budget ($m, inflation-adjusted)", color: "#fdf6ec" }, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
-            y: { title: { display: true, text: yLabel, color: "#fdf6ec" }, ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" } },
+            x: {
+              type: "logarithmic",
+              title: { display: true, text: "Budget ($m, inflation-adjusted)", color: "#fdf6ec" },
+              ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" },
+            },
+            y: {
+              type: yType,
+              title: { display: true, text: yLabel, color: "#fdf6ec" },
+              ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" },
+            },
           },
         },
       });
