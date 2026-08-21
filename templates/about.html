@@ -50,6 +50,8 @@
   {% set _ = follow_links.append(('Spotify', config.spotify_url)) %}
   {% if config.tiktok_url and "PASTE_" not in config.tiktok_url %}{% set _ = follow_links.append(('TikTok', config.tiktok_url)) %}{% endif %}
   {% if config.youtube_url and "PASTE_" not in config.youtube_url %}{% set _ = follow_links.append(('YouTube', config.youtube_url)) %}{% endif %}
+  {% if config.facebook_url and "PASTE_" not in config.facebook_url %}{% set _ = follow_links.append(('Facebook', config.facebook_url)) %}{% endif %}
+  {% if config.letterboxd_url and "PASTE_" not in config.letterboxd_url %}{% set _ = follow_links.append(('Letterboxd', config.letterboxd_url)) %}{% endif %}
   <p style="margin-top:20px;">You can also find us on
     {% for name, url in follow_links %}<a href="{{ url }}" target="_blank" rel="noopener">{{ name }}</a>{% if not loop.last and loop.revindex0 > 1 %}, {% elif not loop.last %} and {% endif %}{% endfor %}.
   </p>
