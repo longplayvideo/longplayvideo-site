@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import sys
+import time
 import urllib.parse
 from datetime import datetime
 
@@ -850,6 +851,32 @@ def parse_glass(text):
     return icon, (name or None)
 
 
+def _fetch_sheet_text(sheet_url, timeout=8, retries=3, backoff=1.5):
+    """GETs a published-to-web Google Sheets CSV, retrying a couple of times
+    with a short backoff before giving up. These fetches see transient
+    read timeouts often enough in practice (this exact "Read timed out"
+    on doc-0s-60-sheets.googleusercontent.com has shown up repeatedly
+    during ordinary local runs) that a single-attempt fetch occasionally
+    drops real, already-working data for an entire build - which is
+    exactly what happened live once already: a timeout on the Top Trumps
+    stats sheet alone silently took out Card Clash's container AND the
+    Chart.js script tag it shares with the Dice Battle radar, breaking
+    both features from one flaky request. Raises on final failure -
+    every caller already wraps this in its own try/except and logs it.
+    """
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            resp = requests.get(sheet_url, timeout=timeout)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as e:
+            last_exc = e
+            if attempt < retries - 1:
+                time.sleep(backoff * (attempt + 1))
+    raise last_exc
+
+
 def load_drinks_snacks(sheet_url):
     """
     Reads a published-to-web Google Sheet CSV with columns: Film,
@@ -875,11 +902,10 @@ def load_drinks_snacks(sheet_url):
     if not sheet_url or "PASTE_" in sheet_url or not requests:
         return {}
     try:
-        resp = requests.get(sheet_url, timeout=8)
-        resp.raise_for_status()
+        text = _fetch_sheet_text(sheet_url)
         import csv
         import io
-        reader = csv.DictReader(io.StringIO(resp.text))
+        reader = csv.DictReader(io.StringIO(text))
         out = {}
         for row in reader:
             film = (row.get("Film") or "").strip()
@@ -985,11 +1011,10 @@ def load_film_stats(sheet_url):
     if not sheet_url or "PASTE_" in sheet_url or not requests:
         return {}
     try:
-        resp = requests.get(sheet_url, timeout=8)
-        resp.raise_for_status()
+        text = _fetch_sheet_text(sheet_url)
         import csv
         import io
-        rows = list(csv.reader(io.StringIO(resp.text)))
+        rows = list(csv.reader(io.StringIO(text)))
         out = {}
         for row in rows[2:]:  # skip the "KEV'S FILMS/ANDY'S FILMS" banner row + the column-header row
             if len(row) < 5:
@@ -1057,11 +1082,10 @@ def load_toptrumps_stats(sheet_url):
     if not sheet_url or "PASTE_" in sheet_url or not requests:
         return {}
     try:
-        resp = requests.get(sheet_url, timeout=8)
-        resp.raise_for_status()
+        text = _fetch_sheet_text(sheet_url)
         import csv
         import io
-        rows = list(csv.reader(io.StringIO(resp.text)))
+        rows = list(csv.reader(io.StringIO(text)))
         out = {}
         for row in rows[1:]:  # skip the header row
             if len(row) < 2:
@@ -1118,11 +1142,10 @@ def load_dice_battle(sheet_url):
     if not sheet_url or "PASTE_" in sheet_url or not requests:
         return []
     try:
-        resp = requests.get(sheet_url, timeout=8)
-        resp.raise_for_status()
+        text = _fetch_sheet_text(sheet_url)
         import csv
         import io
-        rows = list(csv.reader(io.StringIO(resp.text)))
+        rows = list(csv.reader(io.StringIO(text)))
         out = []
         for row in rows[2:]:  # first two rows are the block headers
             get = lambda i: row[i] if i < len(row) else ""

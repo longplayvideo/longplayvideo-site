@@ -160,8 +160,16 @@
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if radar_films and radar_films|length > 1 %}
-<!-- Self-hosted rather than loaded from a CDN - see stats.html for why. -->
+{% if dice_battle_played %}
+<!-- Gated on dice_battle_played, not radar_films - Card Clash itself
+     doesn't need Chart.js at all (see the JS below), only the Dice
+     Battle round replay's radar does. Tying this to radar_films instead
+     was a real bug: a transient fetch failure on the (unrelated) Top
+     Trumps stats sheet zeroed out radar_films for one build, which
+     silently dropped this script tag too and broke Dice Battle's
+     picker/radar along with it, even though Dice Battle's own data had
+     loaded fine. Self-hosted rather than loaded from a CDN - see
+     stats.html for why. -->
 <script src="{{ root }}static/chart.umd.min.js"></script>
 {% endif %}
 <script>
