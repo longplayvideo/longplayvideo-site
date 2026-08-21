@@ -1030,9 +1030,10 @@ def load_toptrumps_stats(sheet_url):
     """
     Reads the "Top Trumps (update)" tab of the Podcast S2 sheet, published
     to web as CSV - one row per film across both seasons together (unlike
-    the Stats tab's two-side-by-side-blocks layout), with the four numeric
-    ratings that power the Top Trumps head-to-head radar chart on the Stats
-    page: Rewatch, Romance, Action and Soundtrack (all out of 100).
+    the Stats tab's two-side-by-side-blocks layout), with the five numeric
+    ratings that power the Top Trumps head-to-head radar chart on the DVD
+    Extras page: First Watch, Rewatch, Romance, Action and Soundtrack (all
+    out of 100).
 
     Column F is headed "Statham" in the sheet itself (an in-joke - Jason
     Statham as the site's mascot for action), read here into the "action"
@@ -1044,7 +1045,7 @@ def load_toptrumps_stats(sheet_url):
     magnitude), so the front end shows it as flavour text under the chart
     instead.
 
-    A film only makes it into the radar chart's film pickers if all four
+    A film only makes it into the radar chart's film pickers if all five
     numeric ratings are present - a partially-filled row (common while
     this sheet is still being backfilled) would draw a lopsided, slightly
     misleading shape, so it's left out entirely rather than shown with
@@ -1069,14 +1070,16 @@ def load_toptrumps_stats(sheet_url):
             title = get(1).strip()
             if not title:
                 continue
+            first_watch = _to_int(get(2))
             rewatch = _to_int(get(3))
             romance = _to_int(get(4))
             action = _to_int(get(5))
             soundtrack = _to_int(get(6))
-            if None in (rewatch, romance, action, soundtrack):
+            if None in (first_watch, rewatch, romance, action, soundtrack):
                 continue
             out[normalize_title(title)] = {
                 "title": title,
+                "first_watch": first_watch,
                 "rewatch": rewatch,
                 "romance": romance,
                 "action": action,
@@ -1403,7 +1406,7 @@ def build():
 
     pages = [
         "index.html", "episodes.html", "about.html", "stats.html",
-        "shop.html", "watchfollow.html", "starthere.html",
+        "toptrumps.html", "shop.html", "starthere.html",
     ]
     for page in pages:
         template = env.get_template(page)

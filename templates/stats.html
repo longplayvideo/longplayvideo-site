@@ -1,183 +1,75 @@
 {% extends "base.html" %}
-{% block title %}Top Trumps & Stats - {{ config.site_title }}{% endblock %}
+{% block title %}Stats - {{ config.site_title }}{% endblock %}
 {% block content %}
 <main>
-  <h2 class="section-title">Top Trumps &amp; Stats</h2>
+  <h2 class="section-title">Stats</h2>
+  <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list. Filter everything by genre below, or hover a dot on the scatter chart for that film's card.</p>
 
-  <div class="toggle-group">
-    <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
-    <button type="button" class="toggle-btn" data-panel="panel-stats">Stats</button>
-    <button type="button" class="toggle-btn" data-panel="panel-drinks">Drinks Menu</button>
-    <button type="button" class="toggle-btn" data-panel="panel-snacks">Snacks Menu</button>
+  {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
+  <div class="toggle-group" style="margin-bottom:24px;">
+    <button type="button" class="toggle-btn active" data-season="all">All Episodes</button>
+    <button type="button" class="toggle-btn" data-season="1">Season 1</button>
+    <button type="button" class="toggle-btn" data-season="2">Season 2</button>
+    {% if episode_genres %}
+    <select class="episode-search" id="stats-genre-filter" style="max-width:200px;">
+      <option value="">All Genres</option>
+      {% for g in episode_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+    </select>
+    {% endif %}
   </div>
-
-  <div class="toggle-panel active" id="panel-toptrumps">
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote. New cards get added as we go, drop a new image into <code>static/toptrumps/</code> and it shows up here automatically.</p>
-    {% if radar_films and radar_films|length > 1 %}
-    <div class="chart-card" id="radar-card">
-      <h4>Top Trumps Head-to-Head</h4>
-      <div class="radar-picker">
-        <select class="episode-search" id="radar-film-a" aria-label="First film"></select>
-        <span class="radar-vs">vs</span>
-        <select class="episode-search" id="radar-film-b" aria-label="Second film"></select>
+  {% endif %}
+  {% if critics_vs_audience %}
+  <div class="chart-card">
+    <h4>Critics vs Audience</h4>
+    <canvas id="critics-audience-chart" height="240"></canvas>
+  </div>
+  {% else %}
+  <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
+  {% endif %}
+  {% if explosions_leaderboard %}
+  <div class="chart-card">
+    <h4>Most Explosive Films</h4>
+    <canvas id="explosions-chart" height="240"></canvas>
+  </div>
+  {% else %}
+  <img class="stats-chart" src="{{ root }}static/stats/explosions-leaderboard.png" alt="Most explosive films leaderboard">
+  {% endif %}
+  {% if deaths_leaderboard %}
+  <div class="chart-card">
+    <h4>Highest Body Count</h4>
+    <canvas id="deaths-chart" height="240"></canvas>
+  </div>
+  {% endif %}
+  {% if box_office_leaderboard %}
+  <div class="chart-card">
+    <div class="chart-card-head">
+      <h4>Biggest Box Office (Inflation-Adjusted)</h4>
+      <div class="boxoffice-toggle">
+        <button type="button" class="btn btn-small boxoffice-metric-btn active" data-metric="value">Total</button>
+        <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="dom">US</button>
+        <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="intl">International</button>
       </div>
-      <canvas id="radar-chart" height="300"></canvas>
-      <p class="radar-quotes" id="radar-quotes"></p>
     </div>
-    {% endif %}
-    {% if toptrumps_cards %}
-    <div class="panel-controls">
-      <input type="text" class="episode-search" id="toptrumps-search" placeholder="Search by film title...">
-      <select class="episode-search" id="toptrumps-genre-filter">
-        <option value="all">All Genres</option>
-        {% for g in toptrumps_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
-      </select>
-      <select class="episode-search" id="toptrumps-sort">
-        <option value="default">Sort: Newest cards</option>
-        <option value="title-asc">Title (A-Z)</option>
-        <option value="imdb-desc">IMDb Rating (High-Low)</option>
-        <option value="rt-desc">Audience Score (High-Low)</option>
-      </select>
-    </div>
-    <div class="toptrumps-grid" id="toptrumps-grid">
-      {% for card in toptrumps_cards %}
-      <a class="toptrumps-card" id="{{ card.slug }}" href="{{ root }}static/toptrumps/{{ card.file }}" target="_blank" rel="noopener"
-         data-title="{{ card.title|lower }}" data-genre="{{ card.genre or '' }}"
-         data-imdb="{{ card.imdb_rating if card.imdb_rating is not none else '' }}"
-         data-rt="{{ card.rt_audience if card.rt_audience is not none else '' }}">
-        {% if loop.index0 < 8 %}
-        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="eager" fetchpriority="high">
-        {% else %}
-        <img src="{{ root }}static/toptrumps/{{ card.file }}" alt="{{ card.title }} Top Trumps card" loading="lazy">
-        {% endif %}
-      </a>
-      {% endfor %}
-    </div>
-    <p class="no-results" id="toptrumps-no-results">No cards match that search.</p>
-    {% else %}
-    <div class="empty-state">No Top Trumps cards yet. Drop image files into <code>static/toptrumps/</code> and they'll appear here on the next rebuild.</div>
-    {% endif %}
+    <canvas id="boxoffice-chart" height="240"></canvas>
   </div>
-
-  <div class="toggle-panel" id="panel-stats">
-    <p class="intro-blurb" style="margin-bottom:20px;">The stuff behind the cards - genre breakdown, critics vs audience, and a few trivia leaderboards pulled from the full list. Filter everything by genre below, or hover a dot on the scatter chart for that film's card.</p>
-    {% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
-    <div class="toggle-group" style="margin-bottom:24px;">
-      <button type="button" class="toggle-btn active" data-season="all">All Episodes</button>
-      <button type="button" class="toggle-btn" data-season="1">Season 1</button>
-      <button type="button" class="toggle-btn" data-season="2">Season 2</button>
-      {% if episode_genres %}
-      <select class="episode-search" id="stats-genre-filter" style="max-width:200px;">
-        <option value="">All Genres</option>
-        {% for g in episode_genres %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
-      </select>
-      {% endif %}
-    </div>
-    {% endif %}
-    {% if critics_vs_audience %}
-    <div class="chart-card">
-      <h4>Critics vs Audience</h4>
-      <canvas id="critics-audience-chart" height="240"></canvas>
-    </div>
-    {% else %}
-    <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
-    {% endif %}
-    {% if explosions_leaderboard %}
-    <div class="chart-card">
-      <h4>Most Explosive Films</h4>
-      <canvas id="explosions-chart" height="240"></canvas>
-    </div>
-    {% else %}
-    <img class="stats-chart" src="{{ root }}static/stats/explosions-leaderboard.png" alt="Most explosive films leaderboard">
-    {% endif %}
-    {% if deaths_leaderboard %}
-    <div class="chart-card">
-      <h4>Highest Body Count</h4>
-      <canvas id="deaths-chart" height="240"></canvas>
-    </div>
-    {% endif %}
-    {% if box_office_leaderboard %}
-    <div class="chart-card">
-      <div class="chart-card-head">
-        <h4>Biggest Box Office (Inflation-Adjusted)</h4>
-        <div class="boxoffice-toggle">
-          <button type="button" class="btn btn-small boxoffice-metric-btn active" data-metric="value">Total</button>
-          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="dom">US</button>
-          <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-metric="intl">International</button>
-        </div>
-      </div>
-      <canvas id="boxoffice-chart" height="240"></canvas>
-    </div>
-    {% endif %}
-    {% if genre_breakdown %}
-    <div class="chart-card">
-      <h4>Genre Breakdown</h4>
-      <p class="genre-filter-chip" id="genre-filter-chip" style="display:none;"></p>
-      <canvas id="genre-chart" height="240"></canvas>
-    </div>
-    {% else %}
-    <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
-    {% endif %}
-    {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
-      <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
-    {% endif %}
+  {% endif %}
+  {% if genre_breakdown %}
+  <div class="chart-card">
+    <h4>Genre Breakdown</h4>
+    <p class="genre-filter-chip" id="genre-filter-chip" style="display:none;"></p>
+    <canvas id="genre-chart" height="240"></canvas>
   </div>
-
-  <div class="toggle-panel" id="panel-drinks">
-    <p class="intro-blurb" style="margin-bottom:20px;">The drink that represents each film, picked by Kev and Andy every episode. Tap or hover a drink with a dotted underline for the ingredients.</p>
-    {% if episodes_with_drinks %}
-    <div class="panel-controls">
-      <input type="text" class="episode-search" id="drinks-search" placeholder="Search by film title...">
-    </div>
-    <div class="link-list" style="list-style:none;" id="drinks-list">
-      {% for ep in episodes_with_drinks %}
-      {% if ep.kev_drink_name or ep.andy_drink_name %}
-      <div class="episode-card" data-title="{{ ep.film_title|lower }}">
-        <div class="body">
-          <h3>{{ ep.film_title }}</h3>
-          <div class="card-links">
-            {% if ep.kev_drink_name %}<span class="snack-tag"{% if ep.kev_drink_ingredients %} data-ingredients="{{ ep.kev_drink_ingredients }}" tabindex="0"{% elif ep.kev_glass_name %} title="{{ ep.kev_glass_name }}"{% endif %}>{{ ep.kev_drink_emoji }} Kev: {{ ep.kev_drink_name }}</span>{% endif %}
-            {% if ep.andy_drink_name %}<span class="snack-tag"{% if ep.andy_drink_ingredients %} data-ingredients="{{ ep.andy_drink_ingredients }}" tabindex="0"{% elif ep.andy_glass_name %} title="{{ ep.andy_glass_name }}"{% endif %}>{{ ep.andy_drink_emoji }} Andy: {{ ep.andy_drink_name }}</span>{% endif %}
-          </div>
-        </div>
-      </div>
-      {% endif %}
-      {% endfor %}
-    </div>
-    <p class="no-results" id="drinks-no-results">No drinks match that search.</p>
-    {% else %}
-    <div class="empty-state">No drinks logged yet. Add a Google Sheet share link to <code>config.json</code> (<code>drinks_sheet_url</code>) with columns for Film, Drink Name, Drink Category, Snack Name and Snack Category, and this fills in automatically.</div>
-    {% endif %}
-  </div>
-
-  <div class="toggle-panel" id="panel-snacks">
-    <p class="intro-blurb" style="margin-bottom:20px;">The snack that represents each film, picked by Kev and Andy every episode. Tap or hover a snack with a dotted underline for the ingredients.</p>
-    {% if episodes_with_snacks %}
-    <div class="panel-controls">
-      <input type="text" class="episode-search" id="snacks-search" placeholder="Search by film title...">
-    </div>
-    <div class="link-list" style="list-style:none;" id="snacks-list">
-      {% for ep in episodes_with_snacks %}
-      <div class="episode-card" data-title="{{ ep.film_title|lower }}">
-        <div class="body">
-          <h3>{{ ep.film_title }}</h3>
-          <div class="card-links">
-            <span class="snack-tag"{% if ep.snack_ingredients %} data-ingredients="{{ ep.snack_ingredients }}" tabindex="0"{% endif %}>{{ ep.snack_emoji }} {{ ep.snack_name }}</span>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    <p class="no-results" id="snacks-no-results">No snacks match that search.</p>
-    {% else %}
-    <div class="empty-state">No snacks logged yet. Add a Google Sheet share link to <code>config.json</code> (<code>drinks_sheet_url</code>) with a Snack Name column, and this fills in automatically.</div>
-    {% endif %}
-  </div>
+  {% else %}
+  <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
+  {% endif %}
+  {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
+    <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
+  {% endif %}
 </main>
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard or (radar_films and radar_films|length > 1) %}
+{% if genre_breakdown or critics_vs_audience or explosions_leaderboard or deaths_leaderboard or box_office_leaderboard %}
 <!-- Self-hosted rather than loaded from a CDN - charts were rendering
      blank for real visitors even though everything worked in testing,
      which pointed at the cdnjs.cloudflare.com script simply not loading
@@ -190,103 +82,7 @@
 {% endif %}
 <script>
 (function () {
-  var toggleBtns = document.querySelectorAll(".toggle-group .toggle-btn[data-panel]");
-  var panels = document.querySelectorAll(".toggle-panel");
-  toggleBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      toggleBtns.forEach(function (b) { b.classList.remove("active"); });
-      panels.forEach(function (p) { p.classList.remove("active"); });
-      btn.classList.add("active");
-      document.getElementById(btn.dataset.panel).classList.add("active");
-      // Chart.js measures each canvas's size from its parent the moment
-      // it's constructed - a chart built while #panel-stats is still
-      // display:none (true on first load, since Top Trumps is the
-      // default active tab) permanently locks in 0x0 and never recovers,
-      // even from a later .resize() call. Rather than fight that, the
-      // Stats charts simply aren't built at all until this tab is opened
-      // for the first time - see ensureStatsRendered(), defined further
-      // down inside `if (window.Chart)` but hoisted to this same
-      // function scope (`function` declarations hoist fully, unlike
-      // `var`), so it's safely callable here regardless of source order.
-      if (btn.dataset.panel === "panel-stats" && typeof ensureStatsRendered === "function") {
-        ensureStatsRendered();
-      }
-    });
-  });
-
-  // --- Simple text search for a panel's card list, shared by the Drinks
-  // and Snacks panels (same pattern as the Episodes page search). ---
-  function wireSearch(inputId, listId, noResultsId) {
-    var input = document.getElementById(inputId);
-    var list = document.getElementById(listId);
-    var noResults = document.getElementById(noResultsId);
-    if (!input || !list) return;
-    input.addEventListener("input", function () {
-      var query = input.value.trim().toLowerCase();
-      var anyVisible = false;
-      list.querySelectorAll(".episode-card").forEach(function (card) {
-        var visible = !query || card.dataset.title.indexOf(query) !== -1;
-        card.style.display = visible ? "" : "none";
-        if (visible) anyVisible = true;
-      });
-      if (noResults) noResults.style.display = anyVisible ? "none" : "block";
-    });
-  }
-  wireSearch("drinks-search", "drinks-list", "drinks-no-results");
-  wireSearch("snacks-search", "snacks-list", "snacks-no-results");
-
-  // --- Top Trumps search + genre filter + sort ---
-  var ttSearch = document.getElementById("toptrumps-search");
-  var genreFilter = document.getElementById("toptrumps-genre-filter");
-  var sortSelect = document.getElementById("toptrumps-sort");
-  var grid = document.getElementById("toptrumps-grid");
-  var ttNoResults = document.getElementById("toptrumps-no-results");
-  if (grid) {
-    var originalOrder = Array.prototype.slice.call(grid.children);
-
-    function applyToptrumps() {
-      var query = ttSearch ? ttSearch.value.trim().toLowerCase() : "";
-      var genre = genreFilter ? genreFilter.value : "all";
-      var sortBy = sortSelect ? sortSelect.value : "default";
-
-      var cards = originalOrder.slice();
-      if (sortBy === "title-asc") {
-        cards.sort(function (a, b) { return a.dataset.title.localeCompare(b.dataset.title); });
-      } else if (sortBy === "imdb-desc") {
-        cards.sort(function (a, b) {
-          var av = parseFloat(a.dataset.imdb), bv = parseFloat(b.dataset.imdb);
-          if (isNaN(av)) return 1;
-          if (isNaN(bv)) return -1;
-          return bv - av;
-        });
-      } else if (sortBy === "rt-desc") {
-        cards.sort(function (a, b) {
-          var av = parseFloat(a.dataset.rt), bv = parseFloat(b.dataset.rt);
-          if (isNaN(av)) return 1;
-          if (isNaN(bv)) return -1;
-          return bv - av;
-        });
-      }
-
-      cards.forEach(function (card) { grid.appendChild(card); });
-
-      var anyVisible = false;
-      cards.forEach(function (card) {
-        var titleMatches = !query || card.dataset.title.indexOf(query) !== -1;
-        var genreMatches = genre === "all" || card.dataset.genre === genre;
-        var visible = titleMatches && genreMatches;
-        card.style.display = visible ? "" : "none";
-        if (visible) anyVisible = true;
-      });
-      if (ttNoResults) ttNoResults.style.display = anyVisible ? "none" : "block";
-    }
-
-    if (ttSearch) ttSearch.addEventListener("input", applyToptrumps);
-    if (genreFilter) genreFilter.addEventListener("change", applyToptrumps);
-    if (sortSelect) sortSelect.addEventListener("change", applyToptrumps);
-  }
-
-  // --- Back to top (shared across all four panels on this page) ---
+  // --- Back to top ---
   var backToTop = document.getElementById("back-to-top");
   if (backToTop) {
     window.addEventListener("scroll", function () {
@@ -297,13 +93,17 @@
     });
   }
 
-  // --- Stats panel: season toggle + genre click-filter + interactive
-  // charts (Chart.js), only rendered once real film stats data is wired up
-  // via film_stats_sheet_url in config.json - falls back to the static
-  // chart images until then. Charts are created once then updated in place
+  // --- Season toggle + genre click-filter + interactive charts (Chart.js),
+  // only rendered once real film stats data is wired up via
+  // film_stats_sheet_url in config.json - falls back to the static chart
+  // images until then. Charts are created once then updated in place
   // (chart.update()) rather than destroyed/rebuilt on every filter change,
   // so Chart.js's own animation carries the bars/points to their new
-  // position instead of snapping. ---
+  // position instead of snapping. This page's charts are always visible
+  // from first render (unlike the old combined Top Trumps & Stats page,
+  // where Stats lived behind a hidden tab and needed a lazy-render
+  // workaround so Chart.js didn't lock in a 0x0 canvas size) - so they
+  // just render straight away below. ---
   if (window.Chart) {
     var genreData = {{ genre_breakdown|tojson }};
     var genreFilmsData = {{ genre_films|tojson }};
@@ -315,78 +115,6 @@
 
     var slugToFile = {};
     toptrumpsCards.forEach(function (c) { slugToFile[c.slug] = c.file; });
-
-    // ---------- Top Trumps head-to-head radar - lives in the Top Trumps
-    // tab (the default active one on page load), so unlike the Stats
-    // panel charts below it never gets built while hidden and doesn't
-    // need the same lazy-render workaround. ---------
-    var radarFilms = {{ radar_films|tojson }};
-    if (radarFilms.length > 1) {
-      var selA = document.getElementById("radar-film-a");
-      var selB = document.getElementById("radar-film-b");
-      radarFilms.forEach(function (f, i) {
-        var optA = document.createElement("option");
-        optA.value = i;
-        optA.textContent = f.title;
-        selA.appendChild(optA);
-        selB.appendChild(optA.cloneNode(true));
-      });
-      selA.value = 0;
-      selB.value = 1;
-
-      var radarChart = null;
-      function radarDataset(film, color) {
-        return {
-          label: film.title,
-          data: [film.rewatch, film.romance, film.action, film.soundtrack],
-          backgroundColor: color + "33",
-          borderColor: color,
-          pointBackgroundColor: color,
-          borderWidth: 2,
-        };
-      }
-      function renderRadar() {
-        var filmA = radarFilms[parseInt(selA.value, 10)];
-        var filmB = radarFilms[parseInt(selB.value, 10)];
-        var data = {
-          labels: ["Rewatchability", "Romance", "Action", "Soundtrack"],
-          datasets: [radarDataset(filmA, "#e8b452"), radarDataset(filmB, "#ff6f5c")],
-        };
-        if (radarChart) {
-          radarChart.data = data;
-          radarChart.update();
-        } else {
-          radarChart = new Chart(document.getElementById("radar-chart"), {
-            type: "radar",
-            data: data,
-            options: {
-              scales: {
-                r: {
-                  min: 0,
-                  max: 100,
-                  angleLines: { color: "rgba(253,246,236,0.15)" },
-                  grid: { color: "rgba(253,246,236,0.15)" },
-                  pointLabels: { color: "#fdf6ec", font: { size: 11 } },
-                  ticks: { display: false, backdropColor: "transparent" },
-                },
-              },
-              plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec" } } },
-            },
-          });
-        }
-        // "Quote" can't be plotted as a radar axis (it's a line of dialogue,
-        // not a magnitude) - shown as flavour text under the chart instead,
-        // for whichever of the two films actually has one on file.
-        var quotesEl = document.getElementById("radar-quotes");
-        var lines = [];
-        if (filmA.quote) lines.push("<strong>" + filmA.title + ":</strong> “" + filmA.quote + "”");
-        if (filmB.quote) lines.push("<strong>" + filmB.title + ":</strong> “" + filmB.quote + "”");
-        quotesEl.innerHTML = lines.join("<br>");
-      }
-      selA.addEventListener("change", renderRadar);
-      selB.addEventListener("change", renderRadar);
-      renderRadar();
-    }
 
     var charts = {}; // keyed by canvas id, created once then updated in place
     var state = { season: "all", genre: null, boxOfficeMetric: "value" };
@@ -653,22 +381,10 @@
       renderBoxOfficeChart();
     }
 
-    var statsRendered = false;
-    function ensureStatsRendered() {
-      if (statsRendered) return;
-      statsRendered = true;
-      renderAll();
-      updateGenreChip();
-    }
-    // Covers the (currently unused, but harmless to guard for) case where
-    // a future change makes #panel-stats the default active tab instead
-    // of #panel-toptrumps - render immediately rather than waiting for a
-    // click that will never come.
-    if (document.getElementById("panel-stats").classList.contains("active")) {
-      ensureStatsRendered();
-    }
+    renderAll();
+    updateGenreChip();
 
-    var seasonBtns = document.querySelectorAll('#panel-stats .toggle-group .toggle-btn[data-season]');
+    var seasonBtns = document.querySelectorAll('.toggle-group .toggle-btn[data-season]');
     seasonBtns.forEach(function (btn) {
       btn.addEventListener("click", function () {
         seasonBtns.forEach(function (b) { b.classList.remove("active"); });

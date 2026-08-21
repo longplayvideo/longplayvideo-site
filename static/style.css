@@ -819,18 +819,39 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   margin-bottom: 18px;
 }
 
-/* --- Sponsor block --- */
+/* --- Sponsor block ---
+   Same card language as .chart-card (dark purple, soft gold border, drop
+   shadow) rather than its own one-off style, so it reads as part of the
+   same site instead of a plain centred stack of text. Horizontal on
+   wider screens (logo left, copy + button right); stacks on mobile. */
 .sponsor-block {
-  text-align: center;
-  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  max-width: 640px;
   margin: 24px auto 0;
-  padding: 32px 24px;
+  padding: 24px 28px;
   background: var(--purple);
   color: var(--cream);
-  border-radius: 16px;
-  border: 2px solid var(--gold);
+  border-radius: 14px;
+  border: 2px solid rgba(232,180,82,0.3);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
-.sponsor-logo { max-width: 260px; width: 100%; height: auto; border-radius: 8px; margin-bottom: 18px; }
+.sponsor-logo { flex: 0 0 auto; width: 180px; max-width: 40%; height: auto; border-radius: 8px; }
+.sponsor-body { min-width: 0; }
+.sponsor-eyebrow {
+  margin: 0 0 6px;
+  color: var(--gold-light);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sponsor-body p:not(.sponsor-eyebrow) { margin: 0 0 16px; }
+@media (max-width: 560px) {
+  .sponsor-block { flex-direction: column; text-align: center; padding: 28px 22px; }
+  .sponsor-logo { width: 160px; max-width: 60%; }
+}
 
 /* --- Watch & Follow --- */
 .follow-section { margin-bottom: 36px; }
@@ -869,21 +890,31 @@ select.episode-search { max-width: 220px; cursor: pointer; }
 .follow-card .name { font-weight: 700; color: var(--gold-light); display: block; }
 .follow-card .sub { font-size: 0.82rem; color: #cdbfe0; }
 
+/* A horizontal scroll-snap strip rather than a grid, now that this shelf
+   (30 cards) lives at the bottom of the About page rather than on a page
+   of its own - a 3/2/1-column grid of 30 items made for a very long
+   vertical scroll on a page that already has plenty above it. One
+   scrollable row keeps the vertical footprint to a single card's height
+   on every screen size, swipeable on mobile, drag-scrollable with a
+   mouse wheel + shift (or a trackpad) on desktop. */
 .follow-shelf {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
   gap: 16px;
   margin-top: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px; /* room for the scrollbar so it doesn't sit under the cards */
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
-@media (max-width: 900px) { .follow-shelf { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .follow-shelf { grid-template-columns: 1fr; } }
 .follow-shelf-card {
+  flex: 0 0 200px;
   background: var(--purple);
   border-radius: 14px;
   padding: 16px 14px;
   text-align: center;
   border-top: 3px solid var(--gold-light);
   transition: transform 0.15s ease;
+  scroll-snap-align: start;
 }
 .follow-shelf-card:hover { transform: translateY(-4px); }
 .follow-shelf-card .avatar-circle {
