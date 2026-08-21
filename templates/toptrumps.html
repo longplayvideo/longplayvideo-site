@@ -16,13 +16,14 @@
     <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatchability, Romance, Action, Soundtrack and a Quote.</p>
     {% if radar_films and radar_films|length > 1 %}
     <div class="chart-card" id="radar-card">
-      <h4>Top Trumps Head-to-Head</h4>
+      <h4>Card Clash</h4>
+      <p class="chart-card-note">Pick any two films and see how they stack up.</p>
       <div class="radar-picker">
         <select class="episode-search" id="radar-film-a" aria-label="First film"></select>
         <span class="radar-vs">vs</span>
         <select class="episode-search" id="radar-film-b" aria-label="Second film"></select>
       </div>
-      <canvas id="radar-chart" height="300"></canvas>
+      <div class="cc-clash" id="card-clash"></div>
       <p class="radar-quotes" id="radar-quotes"></p>
     </div>
     {% endif %}
@@ -278,92 +279,115 @@
     });
   }
 
-  // ---------- Top Trumps head-to-head radar ----------
-  if (window.Chart) {
-    var radarFilms = {{ radar_films|tojson }};
-    if (radarFilms.length > 1) {
-      var selA = document.getElementById("radar-film-a");
-      var selB = document.getElementById("radar-film-b");
-      radarFilms.forEach(function (f, i) {
-        var optA = document.createElement("option");
-        optA.value = i;
-        optA.textContent = f.title;
-        selA.appendChild(optA);
-        selB.appendChild(optA.cloneNode(true));
-      });
-      selA.value = 0;
-      selB.value = 1;
+  var radarFilms = {{ radar_films|tojson }};
 
-      var radarChart = null;
-      function radarDataset(film, color) {
-        return {
-          label: film.title,
-          data: [film.first_watch, film.rewatch, film.romance, film.action, film.soundtrack],
-          backgroundColor: color + "40",
-          borderColor: color,
-          borderWidth: 2.5,
-          pointBackgroundColor: color,
-          pointBorderColor: "#1c1230",
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          // A little curve on the connecting lines softens the shape at
-          // each vertex instead of meeting in a hard point - between this
-          // and the 5th axis (5 points reads far rounder than 4 ever
-          // could), the chart stops looking like a sharp-edged kite even
-          // when a film scores near zero on one axis.
-          tension: 0.3,
-        };
-      }
-      function renderRadar() {
-        var filmA = radarFilms[parseInt(selA.value, 10)];
-        var filmB = radarFilms[parseInt(selB.value, 10)];
-        var data = {
-          labels: ["First Watch", "Rewatchability", "Romance", "Action", "Soundtrack"],
-          datasets: [radarDataset(filmA, "#e8b452"), radarDataset(filmB, "#ff6f5c")],
-        };
-        if (radarChart) {
-          radarChart.data = data;
-          radarChart.update();
-        } else {
-          radarChart = new Chart(document.getElementById("radar-chart"), {
-            type: "radar",
-            data: data,
-            options: {
-              scales: {
-                r: {
-                  min: 0,
-                  max: 100,
-                  angleLines: { color: "rgba(253,246,236,0.18)" },
-                  grid: { color: "rgba(253,246,236,0.18)" },
-                  pointLabels: { color: "#fdf6ec", font: { size: 11, weight: "600" } },
-                  ticks: { display: false, backdropColor: "transparent" },
-                },
-              },
-              plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec" } } },
-              elements: { line: { fill: true } },
-            },
-          });
-        }
-        // "Quote" can't be plotted as a radar axis (it's a line of dialogue,
-        // not a magnitude) - shown as flavour text under the chart instead,
-        // for whichever of the two films actually has one on file.
-        var quotesEl = document.getElementById("radar-quotes");
-        var lines = [];
-        if (filmA.quote) lines.push("<strong>" + filmA.title + ":</strong> “" + filmA.quote + "”");
-        if (filmB.quote) lines.push("<strong>" + filmB.title + ":</strong> “" + filmB.quote + "”");
-        quotesEl.innerHTML = lines.join("<br>");
-      }
-      selA.addEventListener("change", renderRadar);
-      selB.addEventListener("change", renderRadar);
-      renderRadar();
+  // Shapes a film into a Chart.js radar dataset - used only by the Dice
+  // Battle round replay below now (Card Clash replaced the Top Trumps
+  // radar itself), kept as a standalone function rather than nested
+  // inside the `if (window.Chart)` block below so it's unambiguous this
+  // has no actual Chart.js dependency of its own, it just builds a plain
+  // object.
+  function radarDataset(film, color) {
+    return {
+      label: film.title,
+      data: [film.first_watch, film.rewatch, film.romance, film.action, film.soundtrack],
+      backgroundColor: color + "40",
+      borderColor: color,
+      borderWidth: 2.5,
+      pointBackgroundColor: color,
+      pointBorderColor: "#1c1230",
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.3,
+    };
+  }
+
+  // ---------- Top Trumps Head-to-Head: Card Clash - plain DOM/CSS, no
+  // Chart.js involved, so it's deliberately not gated behind
+  // `if (window.Chart)` below - a charting-library hiccup has no reason
+  // to take out an unrelated feature that isn't a chart. ----------
+  if (radarFilms.length > 1) {
+    var selA = document.getElementById("radar-film-a");
+    var selB = document.getElementById("radar-film-b");
+    radarFilms.forEach(function (f, i) {
+      var optA = document.createElement("option");
+      optA.value = i;
+      optA.textContent = f.title;
+      selA.appendChild(optA);
+      selB.appendChild(optA.cloneNode(true));
+    });
+    selA.value = 0;
+    selB.value = 1;
+
+    var CARD_CLASH_CATEGORIES = [
+      { key: "first_watch", label: "First Watch" },
+      { key: "rewatch", label: "Rewatchability" },
+      { key: "romance", label: "Romance" },
+      { key: "action", label: "Action" },
+      { key: "soundtrack", label: "Soundtrack" },
+    ];
+
+    function ccCardHtml(film, side) {
+      var poster = film.poster
+        ? '<img src="' + film.poster + '" alt="' + film.title + ' poster" loading="lazy">'
+        : '<div class="cc-poster-fallback">' + film.title + '</div>';
+      var rows = CARD_CLASH_CATEGORIES.map(function (c) {
+        return '<div class="cc-stat-row" data-key="' + c.key + '">' +
+          '<span class="cc-stat-label">' + c.label + '</span>' +
+          '<span class="cc-stat-value">' + (film[c.key] != null ? film[c.key] : "-") + '</span>' +
+          '</div>';
+      }).join("");
+      return '<div class="cc-card" data-side="' + side + '">' +
+        '<div class="cc-stamp">Winner</div>' +
+        '<div class="cc-poster">' + poster + '</div>' +
+        '<div class="cc-card-name">' + film.title + (film.year ? ' <span>(' + film.year + ')</span>' : '') + '</div>' +
+        '<div class="cc-stats">' + rows + '</div>' +
+        '</div>';
     }
 
-    // ---------- Dice Battle round replay - reuses radarDataset() above by
-    // shaping each side (Kev's film as scored by Andy; Andy's film as
-    // scored by Kev) into the same {title, first_watch, rewatch, romance,
-    // action, soundtrack, quote} shape the Top Trumps radar already
-    // expects, rather than duplicating the point/line styling. ----------
+    function renderCardClash() {
+      var filmA = radarFilms[parseInt(selA.value, 10)];
+      var filmB = radarFilms[parseInt(selB.value, 10)];
+      var container = document.getElementById("card-clash");
+      container.innerHTML = ccCardHtml(filmA, "a") + '<span class="cc-vs">VS</span>' + ccCardHtml(filmB, "b");
+
+      var cardA = container.querySelector('.cc-card[data-side="a"]');
+      var cardB = container.querySelector('.cc-card[data-side="b"]');
+      var winsA = 0, winsB = 0;
+      CARD_CLASH_CATEGORIES.forEach(function (c) {
+        var a = filmA[c.key], b = filmB[c.key];
+        if (a == null || b == null) return;
+        var valueA = cardA.querySelector('.cc-stat-row[data-key="' + c.key + '"] .cc-stat-value');
+        var valueB = cardB.querySelector('.cc-stat-row[data-key="' + c.key + '"] .cc-stat-value');
+        if (a > b) { valueA.classList.add("win"); winsA++; }
+        else if (b > a) { valueB.classList.add("win"); winsB++; }
+        // a tied category (a === b) glows neither side, same as a
+        // missing score on either film - see the mockup shown before
+        // this was built.
+      });
+      if (winsA > winsB) cardA.classList.add("overall-winner");
+      else if (winsB > winsA) cardB.classList.add("overall-winner");
+
+      // "Quote" isn't a stat to compare, just flavour text underneath -
+      // same treatment the old radar chart gave it.
+      var quotesEl = document.getElementById("radar-quotes");
+      var lines = [];
+      if (filmA.quote) lines.push("<strong>" + filmA.title + ":</strong> “" + filmA.quote + "”");
+      if (filmB.quote) lines.push("<strong>" + filmB.title + ":</strong> “" + filmB.quote + "”");
+      quotesEl.innerHTML = lines.join("<br>");
+    }
+    selA.addEventListener("change", renderCardClash);
+    selB.addEventListener("change", renderCardClash);
+    renderCardClash();
+  }
+
+  // ---------- Dice Battle round replay - reuses radarDataset() above by
+  // shaping each side (Kev's film as scored by Andy; Andy's film as
+  // scored by Kev) into the same {title, first_watch, rewatch, romance,
+  // action, soundtrack, quote} shape radarDataset() expects, rather than
+  // duplicating the point/line styling. ----------
+  if (window.Chart) {
     var diceRounds = {{ dice_battle_played|tojson }};
     if (diceRounds.length) {
       function diceSide(title, scores, bestLine) {

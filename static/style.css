@@ -664,6 +664,100 @@ select.episode-search option {
   line-height: 1.5;
 }
 
+/* --- Card Clash (Top Trumps Head-to-Head) --- */
+.cc-clash {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cc-vs {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.3rem;
+  color: var(--gold);
+  align-self: center;
+  flex: 0 0 auto;
+}
+.cc-card {
+  position: relative;
+  width: 230px;
+  max-width: 100%;
+  background: var(--purple);
+  border-radius: 14px;
+  border: 2px solid rgba(232,180,82,0.35);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+.cc-card.overall-winner {
+  border-color: var(--pink-neon);
+  box-shadow: 0 0 0 1px var(--pink-neon), 0 0 18px rgba(255,79,216,0.55), 0 8px 20px rgba(0,0,0,0.4);
+}
+.cc-stamp {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: -30px;
+  transform: rotate(38deg);
+  background: var(--pink-neon);
+  color: var(--purple-dark);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 3px 34px;
+  box-shadow: 0 0 12px rgba(255,79,216,0.6);
+  z-index: 1;
+}
+.cc-card.overall-winner .cc-stamp { display: block; }
+.cc-poster {
+  height: 150px;
+  background: var(--purple-dark);
+}
+.cc-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cc-poster-fallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.3rem;
+  line-height: 1.1;
+  color: var(--gold-light);
+}
+.cc-card-name {
+  padding: 10px 12px 4px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--gold-light);
+  text-align: center;
+}
+.cc-card-name span { font-weight: 400; color: #cdbfe0; font-size: 0.8rem; }
+.cc-stats { padding: 4px 14px 14px; }
+.cc-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(253,246,236,0.08);
+  font-size: 0.78rem;
+}
+.cc-stat-row:last-child { border-bottom: none; }
+.cc-stat-label { color: #cdbfe0; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.68rem; }
+.cc-stat-value { font-weight: 700; color: var(--cream); }
+.cc-stat-value.win { color: var(--pink-neon); text-shadow: 0 0 6px rgba(255,79,216,0.7); }
+@media (max-width: 560px) {
+  .cc-clash { gap: 10px; }
+  .cc-card { width: calc(50% - 26px); }
+  .cc-vs { font-size: 1rem; }
+  .cc-poster { height: 110px; }
+  .cc-poster-fallback { font-size: 1rem; }
+  .cc-card-name { font-size: 0.78rem; padding: 8px 8px 2px; }
+  .cc-stat-label { font-size: 0.6rem; }
+  .cc-stat-value { font-size: 0.75rem; }
+}
+
 /* --- Dice Battle scoreboard --- */
 .dice-scoreboard {
   display: flex;

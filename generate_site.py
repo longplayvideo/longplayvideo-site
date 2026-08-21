@@ -1157,6 +1157,30 @@ def load_dice_battle(sheet_url):
         return []
 
 
+def attach_posters_to_radar_films(radar_films, episodes):
+    """Stamps a real poster URL and release year onto each Top Trumps
+    Head-to-Head film (matched by title, same fuzzy lookup used everywhere
+    else), for the Card Clash comparison UI's poster art. Both come
+    straight from the episode's own OMDb-fetched data - no separate
+    lookup or API call needed. A film that doesn't resolve to an episode
+    (or resolves to one still missing a poster) just gets poster=None,
+    which the front end falls back to a styled title card for, same as
+    any other missing-art case on this site."""
+    # _fuzzy_title_lookup's word-boundary-containment pass needs each
+    # candidate's own non-normalized title under "_source_title" (see its
+    # docstring) - episodes carry that as "film_title" instead, so it's
+    # copied across rather than passing the raw episode dicts straight in.
+    by_title = {
+        normalize_title(ep["film_title"]): dict(ep, _source_title=ep["film_title"])
+        for ep in episodes
+    }
+    for film in radar_films:
+        ep = _fuzzy_title_lookup(film["title"], by_title) if by_title else {}
+        film["poster"] = ep.get("poster")
+        film["year"] = ep.get("year")
+    return radar_films
+
+
 def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes=None):
     """Stamps genre/rating data onto each Top Trumps card (matched by title,
     same loose normalize_title match used everywhere else) so the grid can
@@ -1466,6 +1490,7 @@ def build():
     # to scan - only films with a complete set of four ratings are in here
     # at all (see load_toptrumps_stats), so no extra filtering needed here.
     radar_films = sorted(toptrumps_stats.values(), key=lambda d: d["title"].lower())
+    attach_posters_to_radar_films(radar_films, episodes)
     dice_battle_rounds = load_dice_battle(config.get("dice_battle_sheet_url", ""))
     # Ascending by rank = most-recently-aired round first (S02's countdown
     # airs highest rank number first, working down towards Kev's #1
