@@ -648,6 +648,11 @@ select.episode-search option {
   margin-bottom: 18px;
 }
 .radar-picker select { flex: 1 1 180px; max-width: 260px; }
+/* The Dice Battle round picker's options each hold a rank plus two film
+   titles, not one film title like the other radar-picker selects on
+   this page, so it needs a wider cap or long titles ("Colour of Money"
+   etc.) get clipped mid-word. */
+.radar-picker select#dice-round-picker { flex: 1 1 320px; max-width: 420px; }
 .radar-vs {
   color: var(--gold-light);
   font-weight: 800;

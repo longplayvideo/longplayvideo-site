@@ -414,17 +414,28 @@
             type: "radar",
             data: data,
             options: {
+              // Smaller footprint, bigger text - was rendering close to
+              // square (~1:1) inside a 640px-wide card, i.e. a genuinely
+              // huge chart with small labels relative to it. A wider
+              // aspect ratio shrinks the vertical footprint without
+              // touching the card itself.
+              aspectRatio: 1.6,
               scales: {
                 r: {
                   min: 0, max: 100,
                   angleLines: { color: "rgba(253,246,236,0.18)" },
                   grid: { color: "rgba(253,246,236,0.18)" },
-                  pointLabels: { color: "#fdf6ec", font: { size: 11, weight: "600" } },
+                  pointLabels: { color: "#fdf6ec", font: { size: 14, weight: "600" } },
                   ticks: { display: false, backdropColor: "transparent" },
                 },
               },
-              plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec" } } },
-              elements: { line: { fill: true } },
+              plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec", font: { size: 13 } } } },
+              // fill: false, not true - two overlapping semi-transparent
+              // filled areas blend into a third, uneven muddy colour in
+              // the overlap zone, which is the "strange gradient" this
+              // was producing. Line + point only reads cleaner and is
+              // still perfectly easy to compare visually.
+              elements: { line: { fill: false } },
             },
           });
         }
@@ -439,7 +450,24 @@
         resultEl.innerHTML = "🎲 Dice landed on <strong>" + r.dice_roll + "</strong>, and <strong>" + winnerName + "</strong> takes the round.";
       }
       roundPicker.addEventListener("change", renderDiceRound);
-      renderDiceRound();
+
+      // Chart.js measures a canvas's size from its parent the moment
+      // it's constructed - building this chart immediately (Top Trumps
+      // is the default active tab, so #panel-dicebattle is display:none
+      // at page load) permanently locks it in at 0x0, and it never
+      // recovers even from a later .resize() call. So instead of
+      // rendering on load, this waits for the Dice Battle tab to
+      // actually be opened - same fix already used for the old combined
+      // Top Trumps & Stats page's Stats tab.
+      var diceRendered = false;
+      function ensureDiceRendered() {
+        if (diceRendered) return;
+        diceRendered = true;
+        renderDiceRound();
+      }
+      var diceBattleTabBtn = document.querySelector('.toggle-btn[data-panel="panel-dicebattle"]');
+      if (diceBattleTabBtn) diceBattleTabBtn.addEventListener("click", ensureDiceRendered);
+      if (document.getElementById("panel-dicebattle").classList.contains("active")) ensureDiceRendered();
 
       // Clicking a round in the history list jumps the picker/radar to it,
       // rather than the history list being purely read-only.
