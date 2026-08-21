@@ -29,7 +29,7 @@
       </div>
       <div class="cc-clash" id="card-clash"></div>
       <p class="radar-quotes" id="radar-quotes"></p>
-      <p class="chart-card-note" style="margin-top:18px;">Stat breakdown - each film's own shape, First Watch through Soundtrack.</p>
+      <p class="chart-card-note" style="margin-top:18px;">Stat breakdown - who takes each category, First Watch through Soundtrack.</p>
       <div class="sb-wrap" id="card-clash-bar-chart"></div>
     </div>
     {% endif %}
@@ -348,61 +348,59 @@
         '</div>';
     }
 
-    // Brand palette, not poster-derived colour - a 100%-stacked bar only
-    // works as a system if the same colour means the same category on
-    // every bar; a colour pulled from each film's own poster would mean
-    // "Action" is a different colour on every film, which defeats the
-    // entire point of using colour here. See conversation for the full
-    // reasoning. Deep/jewel-toned rather than pastel-muted - aiming for
-    // "considered and high-end", not washed out.
-    var CARD_CLASH_COLORS = {
-      first_watch: "#c9973e",
-      rewatch: "#b06a48",
-      romance: "#8f5f85",
-      action: "#3d8880",
-      soundtrack: "#8f7f52",
-    };
+    // Same gold/coral pairing used everywhere else on this page (Card
+    // Clash's own stamp glow aside, this is the "two sides" colour
+    // language - Dice Battle's radar, the Budget vs Box Office season
+    // split), rather than a third colour scheme just for this chart.
+    // Gold is always whichever film sits in the left/A picker.
+    var CC_COLOR_A = "#e8b452";
+    var CC_COLOR_B = "#ff6f5c";
 
     // Hand-built HTML/CSS rather than a Chart.js canvas - only 5 fixed
-    // segments and no interactivity beyond a hover tooltip, so a canvas
+    // rows and no interactivity beyond a hover tooltip, so a canvas
     // chart was buying nothing here except fighting its layout engine
-    // for things plain CSS already does natively: a real left-aligned
-    // title per bar (rather than a cramped axis-tick label), the site's
-    // own display font, and exact control over spacing and corner
-    // rounding. Removing this as Card Clash's one Chart.js dependency
-    // also means Card Clash overall needs Chart.js for nothing at all
-    // any more - see the panel-level script tag condition, reverted
-    // back to dice_battle_played alone accordingly.
+    // for things plain CSS already does natively. Removing this as Card
+    // Clash's one Chart.js dependency also means Card Clash overall
+    // needs Chart.js for nothing at all any more - see the panel-level
+    // script tag condition, reverted back to dice_battle_played alone
+    // accordingly.
+    //
+    // One row per CATEGORY (First Watch, Rewatchability, ...), not one
+    // row per film - each row is a single percentage-stacked bar split
+    // between the two films' scores for that category, so it reads as a
+    // direct per-category comparison rather than either film's overall
+    // "shape". Labels show the real scores, not the percentage - the
+    // proportion is what sizes the bar, but the actual numbers are more
+    // useful to read here than an abstract split.
     function renderStatBreakdown(filmA, filmB) {
       var wrap = document.getElementById("card-clash-bar-chart");
       if (!wrap) return;
 
-      function percentages(film) {
-        var total = CARD_CLASH_CATEGORIES.reduce(function (sum, c) { return sum + (film[c.key] || 0); }, 0);
-        return CARD_CLASH_CATEGORIES.map(function (c) { return total ? (film[c.key] || 0) / total * 100 : 0; });
-      }
-
-      function rowHtml(film) {
-        var pcts = percentages(film);
-        var segments = CARD_CLASH_CATEGORIES.map(function (c, i) {
-          var pct = pcts[i];
-          // Below ~10% wide there's no room for "Category 23%" without
-          // wrapping or overflowing, so the label drops and the colour
-          // + tooltip carry it instead.
-          var label = pct >= 10 ? c.label + " " + Math.round(pct) + "%" : "";
-          return '<div class="sb-segment" style="width:' + pct + '%;background:' + CARD_CLASH_COLORS[c.key] + ';" title="' + c.label + ": " + Math.round(pct) + '%">' + label + '</div>';
-        }).join("");
+      function rowHtml(c) {
+        var a = filmA[c.key] || 0, b = filmB[c.key] || 0;
+        var total = a + b;
+        var pctA = total ? (a / total) * 100 : 50;
+        var pctB = 100 - pctA;
+        // Below ~15% wide there's no room for "Film 40" without
+        // wrapping or overflowing, so the label drops and the colour +
+        // tooltip carry it instead.
+        var labelA = pctA >= 15 ? filmA.title + " " + a : "";
+        var labelB = pctB >= 15 ? filmB.title + " " + b : "";
         return '<div class="sb-row">' +
-          '<div class="sb-title">' + film.title + '</div>' +
-          '<div class="sb-bar">' + segments + '</div>' +
+          '<div class="sb-title">' + c.label + '</div>' +
+          '<div class="sb-bar">' +
+          '<div class="sb-segment" style="width:' + pctA + '%;background:' + CC_COLOR_A + ';" title="' + filmA.title + ': ' + a + '">' + labelA + '</div>' +
+          '<div class="sb-segment" style="width:' + pctB + '%;background:' + CC_COLOR_B + ';" title="' + filmB.title + ': ' + b + '">' + labelB + '</div>' +
+          '</div>' +
           '</div>';
       }
 
-      var legend = CARD_CLASH_CATEGORIES.map(function (c) {
-        return '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CARD_CLASH_COLORS[c.key] + '"></span>' + c.label + '</span>';
-      }).join("");
+      var rows = CARD_CLASH_CATEGORIES.map(rowHtml).join("");
+      var legend =
+        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CC_COLOR_A + '"></span>' + filmA.title + '</span>' +
+        '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CC_COLOR_B + '"></span>' + filmB.title + '</span>';
 
-      wrap.innerHTML = rowHtml(filmA) + rowHtml(filmB) + '<div class="sb-legend">' + legend + '</div>';
+      wrap.innerHTML = rows + '<div class="sb-legend">' + legend + '</div>';
     }
 
     function renderCardClash() {
