@@ -226,17 +226,6 @@ nav.site-nav a:hover { color: var(--gold); text-decoration: none; }
   border-top: 3px solid #000;
   border-bottom: 3px solid #000;
 }
-.stat-strip span {
-  background: var(--gold-light);
-  color: var(--red-dark);
-  font-weight: 800;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 8px 16px;
-  border-radius: 20px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
 .stat-strip a.season-btn {
   background: var(--purple-dark);
   color: var(--gold-light);
