@@ -836,7 +836,7 @@ select.episode-search { max-width: 220px; cursor: pointer; }
   align-items: center;
   gap: 28px;
   max-width: 640px;
-  margin: 24px auto 0;
+  margin: 24px 0 0;
   padding: 24px 28px;
   background: var(--purple);
   color: var(--cream);
