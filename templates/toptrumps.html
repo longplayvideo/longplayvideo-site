@@ -30,7 +30,7 @@
       <div class="cc-clash" id="card-clash"></div>
       <p class="radar-quotes" id="radar-quotes"></p>
       <p class="chart-card-note" style="margin-top:18px;">Stat breakdown - each film's own shape, First Watch through Soundtrack.</p>
-      <canvas id="card-clash-bar-chart" height="90"></canvas>
+      <canvas id="card-clash-bar-chart" height="170"></canvas>
     </div>
     {% endif %}
     {#
@@ -282,7 +282,12 @@
     return {
       label: film.title,
       data: [film.first_watch, film.rewatch, film.romance, film.action, film.soundtrack],
-      backgroundColor: color + "40",
+      // ~12% alpha, not the ~25% ("40") this used to be - two overlapping
+      // fills at 25% blend into a third, muddy colour in the overlap
+      // zone (reported as a "gradient"); a much lighter fill keeps a
+      // soft hint of shaded area without that overlap becoming visually
+      // dominant.
+      backgroundColor: color + "1f",
       borderColor: color,
       borderWidth: 2.5,
       pointBackgroundColor: color,
@@ -343,12 +348,15 @@
     // "Action" is a different colour on every film, which defeats the
     // entire point of using colour here. See conversation for the full
     // reasoning.
+    // Muted, not the site's brightest accent hues - at full saturation
+    // side by side across 5 stacked segments it read as loud rather than
+    // informative. Same 5-colour idea, toned down.
     var CARD_CLASH_COLORS = {
-      first_watch: "#e8b452",
-      rewatch: "#ff6f5c",
-      romance: "#ff4fd8",
-      action: "#3fb6b0",
-      soundtrack: "#f5d68a",
+      first_watch: "#d9a441",
+      rewatch: "#c17a5a",
+      romance: "#a8729c",
+      action: "#4a9d92",
+      soundtrack: "#a89968",
     };
 
     var statBarChart = null;
@@ -368,7 +376,15 @@
       var pctA = percentages(filmA), pctB = percentages(filmB);
       var labels = [filmA.title, filmB.title];
       var datasets = CARD_CLASH_CATEGORIES.map(function (c, i) {
-        return { label: c.label, data: [pctA[i], pctB[i]], backgroundColor: CARD_CLASH_COLORS[c.key] };
+        return {
+          label: c.label, data: [pctA[i], pctB[i]], backgroundColor: CARD_CLASH_COLORS[c.key],
+          // Rounded on every corner of every segment (not just the
+          // outer edge of the whole stack) - a stack of sharp rectangles
+          // is what was reading as "very average"; soft pill-like
+          // segments read as a deliberate, considered UI rather than a
+          // default chart.
+          borderRadius: 5, borderSkipped: false, barThickness: 46,
+        };
       });
 
       if (statBarChart) {
@@ -493,12 +509,10 @@
                 },
               },
               plugins: { legend: { position: "bottom", labels: { color: "#fdf6ec", font: { size: 13 } } } },
-              // fill: false, not true - two overlapping semi-transparent
-              // filled areas blend into a third, uneven muddy colour in
-              // the overlap zone, which is the "strange gradient" this
-              // was producing. Line + point only reads cleaner and is
-              // still perfectly easy to compare visually.
-              elements: { line: { fill: false } },
+              // fill back on (radarDataset's backgroundColor is now much
+              // lighter than it was - see there for why removing it
+              // entirely isn't needed once the overlap itself is faint).
+              elements: { line: { fill: true } },
             },
           });
         }

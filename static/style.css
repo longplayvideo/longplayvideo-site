@@ -612,8 +612,16 @@ select.episode-search option {
   padding: 20px 20px 12px;
   background: var(--purple);
   border-radius: 14px;
-  border: 2px solid rgba(232,180,82,0.3);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  /* Opaque, not the semi-transparent gold this used to be - a
+     translucent border on a curved corner blends against whatever's
+     immediately behind it, which reads as an uneven/fading edge right
+     where the corner curves (reported a few times as a "gradient" or
+     "faded" border). A flat opaque colour can't do that. Same fix for
+     the shadow: was offset downward (0 8px), which is naturally
+     stronger at the bottom than the top - a symmetric, unoffset shadow
+     doesn't have a "bright side". */
+  border: 2px solid #8a6d42;
+  box-shadow: 0 0 20px rgba(0,0,0,0.35);
 }
 .chart-card h4 {
   margin: 0 0 14px;
@@ -702,14 +710,14 @@ select.episode-search option {
   display: none;
   position: absolute;
   top: 12px;
-  right: -30px;
+  right: -34px;
   transform: rotate(38deg);
   background: var(--pink-neon);
   color: var(--purple-dark);
   font-family: "Bebas Neue", sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   letter-spacing: 0.05em;
-  padding: 3px 34px;
+  padding: 4px 38px;
   box-shadow: 0 0 12px rgba(255,79,216,0.6);
   z-index: 1;
 }

@@ -83,7 +83,7 @@
         <button type="button" class="btn btn-small btn-ghost boxoffice-metric-btn" data-budgetaxis="roi">Return on Investment</button>
       </div>
     </div>
-    <p class="chart-card-note">Bubble size is the film's rank on its host's list (bigger = higher favourite); colour is its Rotten Tomatoes audience score, red to gold. Based on theatrical box office only, so streaming-first releases will show as underperforming even if that's not really how they made their money.</p>
+    <p class="chart-card-note">Gold is Kev's Season 2 picks, coral is Andy's Season 1 picks. Based on theatrical box office only, so streaming-first releases will show as underperforming even if that's not really how they made their money.</p>
     <canvas id="budget-boxoffice-chart" height="280"></canvas>
   </div>
   {% endif %}
@@ -463,23 +463,17 @@
       });
     }
 
-    // ---------- Budget vs Box Office bubble - bubble size is the film's
-    // rank (bigger = bigger favourite), colour is its RT audience score
-    // (coral -> gold, low -> high), x/y axes are budget and either total
-    // box office or ROI%, toggled the same way the box office leaderboard
-    // switches Total/US/International. ----------
-    function audienceToColor(score) {
-      if (score == null) return "rgba(122,31,31,0.5)"; // unknown score - dim red-deep
-      var t = Math.max(0, Math.min(1, (score - 40) / 60)); // 40-100% mapped to 0-1
-      var from = [0xff, 0x6f, 0x5c]; // --coral
-      var to = [0xe8, 0xb4, 0x52]; // --gold
-      var rgb = from.map(function (c, i) { return Math.round(c + (to[i] - c) * t); });
-      return "rgb(" + rgb.join(",") + ")";
-    }
-    function rankToRadius(rank) {
-      if (rank == null) return 4;
-      var t = Math.max(0, Math.min(1, (100 - rank) / 99)); // rank 1 -> 1, rank 100 -> 0
-      return 3 + t * 9; // 3px..12px - halved from the original 5..20px, which crowded the chart
+    // ---------- Budget vs Box Office bubble - colour is season (gold =
+    // Kev/S2, coral = Andy/S1, same pairing already used for Card Clash
+    // and the Dice Battle radar, rather than inventing a third colour
+    // scheme), bubbles are outline-only (a solid fill on ~140 overlapping
+    // points was hard to pick apart) and a uniform size (rank used to
+    // drive bubble size, but that let big favourites' bubbles swallow
+    // smaller ones - rank is still in the tooltip, just not visually
+    // encoded any more). ----------
+    var BUBBLE_RADIUS = 6;
+    function seasonColor(season) {
+      return String(season) === "2" ? "#e8b452" : "#ff6f5c";
     }
 
     // Log scales are undefined at zero/negative, so a $0m box office (a
@@ -489,6 +483,14 @@
     // the tooltip still shows the real figure via the "box_office" field
     // on the point, never this floored value.
     var LOG_FLOOR = 0.05;
+    // One outlier (a micro-budget film with a ~8,000% return) squashes
+    // every other film into a sliver at the bottom of the ROI view if
+    // the axis auto-scales to include it. Capping the axis (not the
+    // data - the tooltip still shows the real percentage) lets the
+    // actual cluster of films stretch out and breathe. Applied on every
+    // screen size, not just mobile - the distortion isn't a mobile-only
+    // problem, just a more painful one there.
+    var ROI_AXIS_MAX = 500;
 
     function renderBudgetBoxOfficeChart() {
       var canvas = document.getElementById("budget-boxoffice-chart");
@@ -503,18 +505,21 @@
       var data = applyFilters(budgetBoxOfficeData).map(function (d) {
         var rawY = d[yField];
         return {
-          x: d.budget, y: (!onRoi && rawY <= 0) ? LOG_FLOOR : rawY, r: rankToRadius(d.rank),
+          x: d.budget, y: (!onRoi && rawY <= 0) ? LOG_FLOOR : rawY, r: BUBBLE_RADIUS,
           film: d.film, budget: d.budget, box_office: d.box_office, roi: d.roi, audience: d.audience,
+          rank: d.rank, season: d.season,
         };
       });
-      var colors = data.map(function (d) { return audienceToColor(d.audience); });
+      var colors = data.map(function (d) { return seasonColor(d.season); });
 
       if (charts["budget-boxoffice-chart"]) {
         var chart = charts["budget-boxoffice-chart"];
         chart.data.datasets[0].data = data;
-        chart.data.datasets[0].backgroundColor = colors;
+        chart.data.datasets[0].borderColor = colors;
         chart.options.scales.y.title.text = yLabel;
         chart.options.scales.y.type = yType;
+        chart.options.scales.y.max = onRoi ? ROI_AXIS_MAX : undefined;
+        chart.options.scales.y.min = onRoi ? -100 : undefined;
         chart.update();
         return;
       }
@@ -522,19 +527,31 @@
         type: "bubble",
         data: {
           datasets: [{
-            label: "Films", data: data, backgroundColor: colors,
-            borderColor: "rgba(253,246,236,0.6)", borderWidth: 1,
+            label: "Films", data: data,
+            backgroundColor: "transparent", borderColor: colors, borderWidth: 2,
           }],
         },
         options: {
           plugins: {
-            legend: { display: false },
+            legend: {
+              display: true, position: "top", align: "end",
+              labels: {
+                color: "#fdf6ec", boxWidth: 10, font: { size: 12 },
+                generateLabels: function () {
+                  return [
+                    { text: "Kev (Season 2)", fillStyle: "#e8b452", strokeStyle: "#e8b452", pointStyle: "circle" },
+                    { text: "Andy (Season 1)", fillStyle: "#ff6f5c", strokeStyle: "#ff6f5c", pointStyle: "circle" },
+                  ];
+                },
+              },
+            },
             tooltip: {
               callbacks: {
                 label: function (ctx) {
                   var d = ctx.raw;
                   var lines = [d.film, "Budget: $" + Math.round(d.budget) + "m", "Box Office: $" + Math.round(d.box_office) + "m", "ROI: " + d.roi + "%"];
                   if (d.audience != null) lines.push("Audience: " + d.audience + "%");
+                  if (d.rank != null) lines.push("Rank: #" + d.rank);
                   return lines;
                 },
               },
@@ -548,6 +565,8 @@
             },
             y: {
               type: yType,
+              max: onRoi ? ROI_AXIS_MAX : undefined,
+              min: onRoi ? -100 : undefined,
               title: { display: true, text: yLabel, color: "#fdf6ec" },
               ticks: { color: "#fdf6ec" }, grid: { color: "rgba(253,246,236,0.08)" },
             },
