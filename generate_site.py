@@ -416,8 +416,8 @@ def fetch_episodes(rss_url, omdb_api_key, drinks_snacks=None, film_stats=None, f
             else imdb_search_link(film_title)
         )
 
-        drink_snack = drinks_snacks.get(normalize_title(film_title), {})
-        stats = film_stats.get(normalize_title(film_title), {})
+        drink_snack = _fuzzy_title_lookup(film_title, drinks_snacks)
+        stats = _fuzzy_title_lookup(film_title, film_stats)
 
         episodes.append({
             "title": title,
@@ -659,6 +659,57 @@ def _is_word_prefix(shorter, longer):
     return bool(shorter) and longer[:len(shorter)] == shorter
 
 
+def _fuzzy_title_lookup(film_title, data_by_norm_title):
+    """
+    Looks up film_title in a {normalize_title(key): value} dict - used for
+    the drinks/snacks and film-stats sheets - falling back past a failed
+    exact match the same way resolve_surprise_titles does: word-boundary
+    containment, then a fuzzy ratio above a safety threshold. Without this,
+    a small wording difference between the episode's parsed title and the
+    sheet's own spelling silently drops real data that's actually there
+    under a slightly different key - e.g. "Indiana Jones & the Last
+    Crusade" (episode title) vs "...and the Last Crusade" (sheet), "Kill
+    Bill" vs the sheet's "Kill Bill: Volume 1", or "Se7en" vs "Seven".
+    Requires each dict value to carry its own original, non-normalized
+    title in a "_source_title" key (both load_drinks_snacks and
+    _film_stats_entry stamp this on) - the normalized dict keys themselves
+    have no word boundaries left to check, same limitation lookup_film_year
+    ran into with film_years.json. Returns {} if nothing clears the bar,
+    same as a plain dict.get() would.
+    """
+    if not data_by_norm_title:
+        return {}
+    key = normalize_title(film_title)
+    if key in data_by_norm_title:
+        return data_by_norm_title[key]
+
+    key_words = _title_word_list(film_title)
+    candidates = []
+    for norm_key, value in data_by_norm_title.items():
+        source = value.get("_source_title") or ""
+        source_words = _title_word_list(source)
+        if _is_word_prefix(key_words, source_words) or _is_word_prefix(source_words, key_words):
+            candidates.append((norm_key, value))
+    if candidates:
+        candidates.sort(key=lambda pair: abs(len(pair[0]) - len(key)))
+        return candidates[0][1]
+
+    best_value, best_ratio = None, 0.0
+    for norm_key, value in data_by_norm_title.items():
+        ratio = difflib.SequenceMatcher(None, key, norm_key).ratio()
+        if ratio > best_ratio:
+            best_value, best_ratio = value, ratio
+    # 0.78, not the usual 0.82 used elsewhere (lookup_film_year,
+    # resolve_surprise_titles): "Se7en" vs the sheet's "Seven" only
+    # scores 0.80, and "Ferris Bueller's Day Off" vs the sheet's
+    # shortened "Ferris Bueller" only scores 0.788, so 0.82 was
+    # silently dropping real data for those two. Checked against every
+    # title in both sheets first (see conversation) - the next-highest
+    # ratio for a genuinely different film is 0.70 ("The Visitor" vs
+    # "The Insider"), so 0.78 leaves a clear safety margin.
+    return best_value if best_ratio >= 0.78 else {}
+
+
 def resolve_surprise_titles(titles_list, episodes):
     """
     Matches the freeform titles in titles.json against the real episode
@@ -846,6 +897,7 @@ def load_drinks_snacks(sheet_url):
             snack_ingredients = (row.get("Snack Ingredients") or "").strip()
 
             out[normalize_title(film)] = {
+                "_source_title": film,
                 "kev_drink_name": kev_drink,
                 "kev_drink_emoji": (kev_icon or _emoji_for(row.get("Kev Drink Category"), DRINK_EMOJI_KEYWORDS, DEFAULT_DRINK_EMOJI)) if kev_drink else None,
                 "kev_glass_name": kev_glass_name if kev_drink else None,
@@ -880,7 +932,8 @@ def _to_int(val):
 
 def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=None,
                        sub_genre=None, runtime=None, explosions=None, deaths=None,
-                       animated_chars=None, budget_adj=None, dom_rev_adj=None, intl_rev_adj=None):
+                       animated_chars=None, budget_adj=None, dom_rev_adj=None, intl_rev_adj=None,
+                       source_title=None):
     rt_audience = _to_float(rt_audience)
     rt_critics = _to_float(rt_critics)
     # Tolerate scores entered either as 0-1 (0.94) or 0-100/"94%" - both
@@ -896,6 +949,7 @@ def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=N
     if dom_rev_adj is not None or intl_rev_adj is not None:
         box_office_adj = (dom_rev_adj or 0) + (intl_rev_adj or 0)
     return {
+        "_source_title": source_title,
         "genre": (genre or "").strip() or None,
         "sub_genre": (sub_genre or "").strip() or None,
         "rt_audience": rt_audience,
@@ -950,6 +1004,7 @@ def load_film_stats(sheet_url):
                     sub_genre=get(8), runtime=get(9), explosions=get(14),
                     deaths=get(15), animated_chars=get(16),
                     budget_adj=get(18), dom_rev_adj=get(21), intl_rev_adj=get(22),
+                    source_title=kev_title,
                 )
 
             andy_title = get(26).strip()
@@ -963,6 +1018,7 @@ def load_film_stats(sheet_url):
                     # originally, but they've since been added at AM-AR,
                     # mirroring Kev's block's layout at R-W exactly.
                     budget_adj=get(39), dom_rev_adj=get(42), intl_rev_adj=get(43),
+                    source_title=andy_title,
                 )
         return out
     except Exception as e:
@@ -1046,7 +1102,7 @@ def attach_film_stats_to_toptrumps(toptrumps_cards, film_stats, episodes=None):
                 season_by_title[normalize_title(ep["film_title"])] = ep["season"]
     for card in toptrumps_cards:
         key = normalize_title(card["title"])
-        stats = film_stats.get(key, {})
+        stats = _fuzzy_title_lookup(card["title"], film_stats)
         card["genre"] = stats.get("genre")
         card["rt_audience"] = stats.get("rt_audience")
         card["imdb_rating"] = stats.get("imdb_rating")
