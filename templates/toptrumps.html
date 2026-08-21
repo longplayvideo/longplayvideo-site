@@ -30,7 +30,7 @@
       <div class="cc-clash" id="card-clash"></div>
       <p class="radar-quotes" id="radar-quotes"></p>
       <p class="chart-card-note" style="margin-top:18px;">Stat breakdown - each film's own shape, First Watch through Soundtrack.</p>
-      <canvas id="card-clash-bar-chart" height="170"></canvas>
+      <div class="sb-wrap" id="card-clash-bar-chart"></div>
     </div>
     {% endif %}
     {#
@@ -161,16 +161,14 @@
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>
 
-{% if dice_battle_played or (radar_films and radar_films|length > 1) %}
-<!-- OR, not just dice_battle_played - Card Clash's stat-breakdown bar
-     chart needs Chart.js too now, alongside Dice Battle's radar. Kept
-     as an OR rather than going back to relying on just one condition
-     (or an AND) on purpose: either data source alone is enough to load
-     this script, so a fetch failure on ONE of the two sheets still
-     can't cascade into breaking the other feature - see the commit that
-     first split this off radar_films alone for what happens when it
-     can. Self-hosted rather than loaded from a CDN - see stats.html for
-     why. -->
+{% if dice_battle_played %}
+<!-- Only Dice Battle's radar needs Chart.js on this page - Card Clash's
+     stat-breakdown bar is now plain HTML/CSS, so it never depended on
+     this in the first place. Keeping this gate on dice_battle_played
+     alone (not radar_films, not an OR of both) is deliberate: a fetch
+     failure on the Top Trumps stats sheet genuinely can't affect this
+     script tag or anything that needs it any more. Self-hosted rather
+     than loaded from a CDN - see stats.html for why. -->
 <script src="{{ root }}static/chart.umd.min.js"></script>
 {% endif %}
 <script>
@@ -347,71 +345,56 @@
     // every bar; a colour pulled from each film's own poster would mean
     // "Action" is a different colour on every film, which defeats the
     // entire point of using colour here. See conversation for the full
-    // reasoning.
-    // Muted, not the site's brightest accent hues - at full saturation
-    // side by side across 5 stacked segments it read as loud rather than
-    // informative. Same 5-colour idea, toned down.
+    // reasoning. Deep/jewel-toned rather than pastel-muted - aiming for
+    // "considered and high-end", not washed out.
     var CARD_CLASH_COLORS = {
-      first_watch: "#d9a441",
-      rewatch: "#c17a5a",
-      romance: "#a8729c",
-      action: "#4a9d92",
-      soundtrack: "#a89968",
+      first_watch: "#c9973e",
+      rewatch: "#b06a48",
+      romance: "#8f5f85",
+      action: "#3d8880",
+      soundtrack: "#8f7f52",
     };
 
-    var statBarChart = null;
+    // Hand-built HTML/CSS rather than a Chart.js canvas - only 5 fixed
+    // segments and no interactivity beyond a hover tooltip, so a canvas
+    // chart was buying nothing here except fighting its layout engine
+    // for things plain CSS already does natively: a real left-aligned
+    // title per bar (rather than a cramped axis-tick label), the site's
+    // own display font, and exact control over spacing and corner
+    // rounding. Removing this as Card Clash's one Chart.js dependency
+    // also means Card Clash overall needs Chart.js for nothing at all
+    // any more - see the panel-level script tag condition, reverted
+    // back to dice_battle_played alone accordingly.
     function renderStatBreakdown(filmA, filmB) {
-      var canvas = document.getElementById("card-clash-bar-chart");
-      // Card Clash itself has no Chart.js dependency (see the panel-level
-      // script tag condition above) - this breakdown chart is the one
-      // piece of Card Clash that does need it, so it quietly does
-      // nothing if Chart.js didn't load, rather than throwing and taking
-      // the cards (which have already rendered fine above) down with it.
-      if (!canvas || !window.Chart) return;
+      var wrap = document.getElementById("card-clash-bar-chart");
+      if (!wrap) return;
 
       function percentages(film) {
         var total = CARD_CLASH_CATEGORIES.reduce(function (sum, c) { return sum + (film[c.key] || 0); }, 0);
         return CARD_CLASH_CATEGORIES.map(function (c) { return total ? (film[c.key] || 0) / total * 100 : 0; });
       }
-      var pctA = percentages(filmA), pctB = percentages(filmB);
-      var labels = [filmA.title, filmB.title];
-      var datasets = CARD_CLASH_CATEGORIES.map(function (c, i) {
-        return {
-          label: c.label, data: [pctA[i], pctB[i]], backgroundColor: CARD_CLASH_COLORS[c.key],
-          // Rounded on every corner of every segment (not just the
-          // outer edge of the whole stack) - a stack of sharp rectangles
-          // is what was reading as "very average"; soft pill-like
-          // segments read as a deliberate, considered UI rather than a
-          // default chart.
-          borderRadius: 5, borderSkipped: false, barThickness: 46,
-        };
-      });
 
-      if (statBarChart) {
-        statBarChart.data.labels = labels;
-        statBarChart.data.datasets.forEach(function (ds, i) { ds.data = datasets[i].data; });
-        statBarChart.update();
-        return;
+      function rowHtml(film) {
+        var pcts = percentages(film);
+        var segments = CARD_CLASH_CATEGORIES.map(function (c, i) {
+          var pct = pcts[i];
+          // Below ~10% wide there's no room for "Category 23%" without
+          // wrapping or overflowing, so the label drops and the colour
+          // + tooltip carry it instead.
+          var label = pct >= 10 ? c.label + " " + Math.round(pct) + "%" : "";
+          return '<div class="sb-segment" style="width:' + pct + '%;background:' + CARD_CLASH_COLORS[c.key] + ';" title="' + c.label + ": " + Math.round(pct) + '%">' + label + '</div>';
+        }).join("");
+        return '<div class="sb-row">' +
+          '<div class="sb-title">' + film.title + '</div>' +
+          '<div class="sb-bar">' + segments + '</div>' +
+          '</div>';
       }
-      statBarChart = new Chart(canvas, {
-        type: "bar",
-        data: { labels: labels, datasets: datasets },
-        options: {
-          indexAxis: "y",
-          scales: {
-            x: {
-              stacked: true, min: 0, max: 100,
-              ticks: { color: "#fdf6ec", callback: function (v) { return v + "%"; } },
-              grid: { color: "rgba(253,246,236,0.08)" },
-            },
-            y: { stacked: true, ticks: { color: "#fdf6ec" }, grid: { display: false } },
-          },
-          plugins: {
-            legend: { position: "bottom", labels: { color: "#fdf6ec", font: { size: 12 }, boxWidth: 14 } },
-            tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + Math.round(ctx.raw) + "%"; } } },
-          },
-        },
-      });
+
+      var legend = CARD_CLASH_CATEGORIES.map(function (c) {
+        return '<span class="sb-legend-item"><span class="sb-legend-dot" style="background:' + CARD_CLASH_COLORS[c.key] + '"></span>' + c.label + '</span>';
+      }).join("");
+
+      wrap.innerHTML = rowHtml(filmA) + rowHtml(filmB) + '<div class="sb-legend">' + legend + '</div>';
     }
 
     function renderCardClash() {
