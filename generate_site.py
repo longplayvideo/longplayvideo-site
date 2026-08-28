@@ -1086,19 +1086,41 @@ def load_toptrumps_stats(sheet_url):
         import csv
         import io
         rows = list(csv.reader(io.StringIO(text)))
+        if not rows:
+            return {}
+        # Looked up by header name rather than a fixed column position - a
+        # "Reorder" column got inserted before "Title" at some point after
+        # this was first written, which silently shifted every hardcoded
+        # index by one and made every row fail the "5 numeric ratings"
+        # check below (title landed on a number, ratings landed on text),
+        # emptying radar_films and quietly taking out the Card Clash
+        # comparison tool with no error anywhere. Reading by name survives
+        # the sheet gaining, losing, or reordering columns in the future.
+        header = [h.strip() for h in rows[0]]
+        try:
+            col = {
+                "title": header.index("Title"),
+                "first_watch": header.index("First Watch"),
+                "rewatch": header.index("Rewatch"),
+                "romance": header.index("Romance"),
+                "action": header.index("Statham"),
+                "soundtrack": header.index("Soundtrack"),
+                "quote": header.index("Line"),
+            }
+        except ValueError as e:
+            print(f"  Top Trumps stats sheet missing an expected column: {e}")
+            return {}
         out = {}
         for row in rows[1:]:  # skip the header row
-            if len(row) < 2:
-                continue
-            get = lambda i: row[i] if i < len(row) else ""
-            title = get(1).strip()
+            get = lambda key: row[col[key]] if col[key] < len(row) else ""
+            title = get("title").strip()
             if not title:
                 continue
-            first_watch = _to_int(get(2))
-            rewatch = _to_int(get(3))
-            romance = _to_int(get(4))
-            action = _to_int(get(5))
-            soundtrack = _to_int(get(6))
+            first_watch = _to_int(get("first_watch"))
+            rewatch = _to_int(get("rewatch"))
+            romance = _to_int(get("romance"))
+            action = _to_int(get("action"))
+            soundtrack = _to_int(get("soundtrack"))
             if None in (first_watch, rewatch, romance, action, soundtrack):
                 continue
             out[normalize_title(title)] = {
@@ -1108,7 +1130,7 @@ def load_toptrumps_stats(sheet_url):
                 "romance": romance,
                 "action": action,
                 "soundtrack": soundtrack,
-                "quote": get(7).strip() or None,
+                "quote": get("quote").strip() or None,
             }
         return out
     except Exception as e:
