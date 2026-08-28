@@ -22,7 +22,7 @@
               {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Listen on Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt="Amazon Music"></a>{% endif %}
             </span>
             {% if ep.imdb_link %}<a class="imdb-link" href="{{ ep.imdb_link }}" target="_blank" rel="noopener">IMDb</a>{% endif %}
-            {% if ep.toptrumps_slug %}<a class="toptrumps-link" href="{{ root }}toptrumps.html#{{ ep.toptrumps_slug }}">Top Trumps</a>{% endif %}
+            {% if ep.toptrumps_slug %}<a class="toptrumps-link" href="{{ root }}toptrumps.html#{{ ep.toptrumps_slug }}">LPV Card</a>{% endif %}
             {% if ep.kev_drink_name %}<span class="snack-tag"{% if ep.kev_drink_ingredients %} data-ingredients="{{ ep.kev_drink_ingredients }}" tabindex="0"{% elif ep.kev_glass_name %} title="{{ ep.kev_glass_name }}"{% endif %}>{{ ep.kev_drink_emoji }} Kev: {{ ep.kev_drink_name }}</span>{% endif %}
             {% if ep.andy_drink_name %}<span class="snack-tag"{% if ep.andy_drink_ingredients %} data-ingredients="{{ ep.andy_drink_ingredients }}" tabindex="0"{% elif ep.andy_glass_name %} title="{{ ep.andy_glass_name }}"{% endif %}>{{ ep.andy_drink_emoji }} Andy: {{ ep.andy_drink_name }}</span>{% endif %}
             {% if ep.snack_name %}<span class="snack-tag"{% if ep.snack_ingredients %} data-ingredients="{{ ep.snack_ingredients }}" tabindex="0"{% endif %}>{{ ep.snack_emoji }} {{ ep.snack_name }}</span>{% endif %}

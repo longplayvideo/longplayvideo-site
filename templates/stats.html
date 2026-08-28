@@ -291,7 +291,7 @@
         var point = tooltip.dataPoints[0].raw;
         var file = point.toptrumps_slug && slugToFile[point.toptrumps_slug];
         var html = "";
-        if (file) html += '<img src="{{ root }}static/toptrumps/' + file + '" alt="' + point.film + ' Top Trumps card">';
+        if (file) html += '<img src="{{ root }}static/toptrumps/' + file + '" alt="' + point.film + ' LPV Card">';
         html += '<div class="tt-tooltip-body"><strong>' + point.film + '</strong>' +
                 '<span>Critics: ' + point.x + '%</span>' +
                 '<span>Audience: ' + point.y + '%</span></div>';

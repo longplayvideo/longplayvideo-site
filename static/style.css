@@ -621,6 +621,18 @@ select.episode-search option {
   padding: 20px 20px 12px;
   background: var(--purple);
   border-radius: 14px;
+  /* Belt-and-braces against Chart.js sizing its canvas wider than the
+     card on first paint - seen on real mobile Chrome (Android) but not
+     in desktop DevTools' mobile emulation, which runs on the desktop's
+     rendering engine/devicePixelRatio and settles layout before Chart.js
+     reads the container's width. A real phone's different DPR and
+     layout/font-swap timing can let Chart.js capture a stale/incorrect
+     width on that first read, so the canvas is drawn wider than the
+     card and spills past the rounded border. overflow:hidden is the
+     hard stop; the !important max-width below (closer to the actual
+     canvas) is what gets Chart.js's own ResizeObserver to notice and
+     redraw at the correct size, rather than just clipping the overflow. */
+  overflow: hidden;
   /* Opaque, not the semi-transparent gold this used to be - a
      translucent border on a curved corner blends against whatever's
      immediately behind it, which reads as an uneven/fading edge right
@@ -632,6 +644,8 @@ select.episode-search option {
   border: 2px solid #8a6d42;
   box-shadow: 0 0 20px rgba(0,0,0,0.35);
 }
+.chart-card canvas { max-width: 100% !important; }
+
 .chart-card h4 {
   margin: 0 0 14px;
   color: var(--gold-light);

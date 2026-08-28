@@ -1377,7 +1377,7 @@ def compute_budget_vs_boxoffice(episodes):
 
 
 # Brand names that .title() would otherwise mangle (e.g. "outout" -> "Outout").
-TITLE_FIXUPS = {"Outout": "OutOut"}
+TITLE_FIXUPS = {"Outout": "OutOut", "Lpv": "LPV"}
 
 
 # Shop items are grouped into a category guessed from the filename ending -

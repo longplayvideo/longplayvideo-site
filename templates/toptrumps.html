@@ -5,7 +5,7 @@
   <h2 class="section-title">Bonus Features</h2>
 
   <div class="toggle-group">
-    <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Top Trumps</button>
+    <button type="button" class="toggle-btn active" data-panel="panel-toptrumps">Card Clash</button>
     <button type="button" class="toggle-btn" data-panel="panel-drinks">Drinks Menu</button>
     <button type="button" class="toggle-btn" data-panel="panel-snacks">Snacks Menu</button>
     {% if dice_battle_played %}<button type="button" class="toggle-btn" data-panel="panel-dicebattle">Dice Battle</button>{% endif %}
@@ -14,9 +14,9 @@
   <div class="toggle-panel active" id="panel-toptrumps">
     {% set has_quotes = radar_films|selectattr('quote')|list %}
     {% if has_quotes %}
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatch, Romance, Action, Soundtrack and a Quote.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own LPV Card - First Watch, Rewatch, Romance, Action, Soundtrack and a Quote.</p>
     {% else %}
-    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own Top Trumps card - First Watch, Rewatch, Romance, Action and Soundtrack.</p>
+    <p class="intro-blurb" style="margin-bottom:20px;">Every film gets its own LPV Card - First Watch, Rewatch, Romance, Action and Soundtrack.</p>
     {% endif %}
     {% if radar_films and radar_films|length > 1 %}
     <div class="chart-card" id="radar-card">
