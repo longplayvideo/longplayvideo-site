@@ -566,11 +566,34 @@ select.episode-search option {
 
 /* Drinks Menu: a faint gold diner/disco-floor checkerboard tile under the
    colour wash - retro without being a literal photo background. */
+/* Recoloured to OutOut's actual brand violet (sampled from their logo -
+   static/outout-logo.jpg) rather than the site's own gold, now that this
+   panel carries their sponsorship - same wash pattern as every other
+   panel here, just tinted to the sponsor's own colour instead of ours. */
 #panel-drinks.active {
   background:
-    radial-gradient(circle at 15% -10%, rgba(232,180,82,0.4), transparent 60%),
-    repeating-conic-gradient(rgba(232,180,82,0.07) 0% 25%, transparent 0% 50%) 0 0/44px 44px,
+    radial-gradient(circle at 15% -10%, rgba(123,79,224,0.45), transparent 60%),
+    repeating-conic-gradient(rgba(123,79,224,0.08) 0% 25%, transparent 0% 50%) 0 0/44px 44px,
     var(--purple-dark);
+}
+
+/* OutOut sponsor mention at the top of the Drinks Menu panel - logo plus
+   a one-line credit, clickable through to their site. */
+.drinks-sponsor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.drinks-sponsor:hover { text-decoration: none; }
+.drinks-sponsor img { height: 26px; width: auto; display: block; }
+.drinks-sponsor span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cream);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 /* Snacks Menu: a scatter of coral dots - popcorn-kernel/movie-carpet texture. */
 #panel-snacks.active {

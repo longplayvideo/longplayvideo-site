@@ -96,9 +96,6 @@
   {% else %}
   <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
   {% endif %}
-  {% if config.sheet_url and "PASTE_" not in config.sheet_url %}
-    <p style="text-align:center;"><a class="btn" href="{{ config.sheet_url }}" target="_blank" rel="noopener">Open the full Lists &amp; Stats sheet</a></p>
-  {% endif %}
 </main>
 
 <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">&uarr;</button>

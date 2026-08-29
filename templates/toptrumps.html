@@ -45,6 +45,12 @@
   </div>
 
   <div class="toggle-panel" id="panel-drinks">
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}
+    <a class="drinks-sponsor" href="{{ config.outout_url }}" target="_blank" rel="noopener">
+      <img src="{{ root }}static/outout-logo.jpg" alt="OutOut">
+      <span>Drinks Menu sponsored by OutOut</span>
+    </a>
+    {% endif %}
     {% set has_drink_ingredients = episodes_with_drinks|selectattr('kev_drink_ingredients')|list or episodes_with_drinks|selectattr('andy_drink_ingredients')|list %}
     {% if has_drink_ingredients %}
     <p class="intro-blurb" style="margin-bottom:20px;">The drink that represents each film, picked by Kev and Andy every episode. Tap or hover a drink with a dotted underline for the ingredients.</p>

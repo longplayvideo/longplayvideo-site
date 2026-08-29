@@ -25,8 +25,6 @@
   "_note_toptrumps_stats_sheet_url": "The 'Top Trumps (update)' tab - one row per film (both seasons) with Rewatch/Romance/Statham(=Action)/Soundtrack/Line, powers the Top Trumps head-to-head radar chart on the Stats page.",
   "dice_battle_sheet_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSBscQeRxlsHkvlFzFDydY0zZkULQSQF0zoqQPXhK1ZliVG3xml98J-PchnYjvQFX7ZZ0zyuR1Mkrmp/pub?gid=933397609&single=true&output=csv",
   "_note_dice_battle_sheet_url": "The 'Top Trumps Totals (update)' tab - Kev vs Andy's head-to-head scoring of each other's weekly picks (dice roll, winner, TT score). Not wired into anything yet - not part of what was asked for this round - but it's a natural fit for a future 'Dice Battle results' feature, so the link's saved here rather than lost.",
-  "sheet_url": "PASTE_YOUR_LISTS_AND_STATS_GOOGLE_SHEET_SHARE_LINK_HERE",
-  "_note_sheet_url": "Left as placeholder deliberately - this is a normal (not published-CSV) share link shown as a public 'browse our data' button on the Stats page, so only set it if you're comfortable visitors seeing the whole Podcast S2 sheet (including any tabs you haven't hidden).",
   "contact_email": "longplayvideo@gmail.com",
   "max_episodes_home": 3,
   "omdb_api_key": "215ef832"
