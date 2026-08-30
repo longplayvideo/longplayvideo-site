@@ -1007,8 +1007,15 @@ select.episode-search { max-width: 220px; cursor: pointer; }
 }
 /* Same card proportions as the Top Trumps grid (.toptrumps-card img) -
    a tall aspect ratio with object-fit: cover so the product photo fills
-   and zooms to the frame instead of shrinking to fit with letterboxing. */
-.showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; background: rgba(232,180,82,0.08); }
+   and zooms to the frame instead of shrinking to fit with letterboxing -
+   fine as long as every product photo is portrait-shaped like a garment
+   mockup, which stopped being true the moment a landscape flat-lay shot
+   (e.g. several bottles side by side) showed up: cover cropped its edges
+   off to fill the tall box. contain never crops, at the cost of some
+   products getting letterboxed rather than filling the frame edge to
+   edge - the safer default now that product photos come in a mix of
+   shapes, not just tall ones. */
+.showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: contain; background: rgba(232,180,82,0.08); }
 /* Products with a "-back" image (see load_shop_items) crossfade to it on
    hover/tap - e.g. showing a tee's back print, or the other side of a
    stubby holder. Products with just one image are unaffected. */
