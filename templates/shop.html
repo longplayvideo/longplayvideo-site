@@ -13,13 +13,25 @@
   <div class="showcase-grid">
     {% for item in group.products %}
     <div class="showcase-card{% if item.back_file %} has-back{% endif %}">
-      {% if ns.idx < 9 %}
-      <img class="shop-front" src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="eager" fetchpriority="high" width="500" height="500">
-      {% else %}
-      <img class="shop-front" src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy" width="500" height="500">
-      {% endif %}
+      {# --photo deliberately uses a hard-coded /static/ path here, not {{ root }}
+         like every img src on this page - a url() stored in a custom property via
+         inline style gets resolved against the *stylesheet* that consumes it via
+         var() (style.css, at /static/style.css), not against this page, once
+         style.css's own .shop-photo::before rule reads it back out. A relative
+         path here silently became /static/static/shop/... and 404'd. Root-relative
+         sidesteps it since it's unambiguous regardless of which file parses it -
+         safe because this site is deployed at its domain's root, not a subpath. #}
+      <div class="shop-photo shop-front" style="--photo:url('/static/shop/{{ item.file }}')">
+        {% if ns.idx < 9 %}
+        <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="eager" fetchpriority="high" width="500" height="500">
+        {% else %}
+        <img src="{{ root }}static/shop/{{ item.file }}" alt="{{ item.title }}" loading="lazy" width="500" height="500">
+        {% endif %}
+      </div>
       {% if item.back_file %}
-      <img class="shop-back" src="{{ root }}static/shop/{{ item.back_file }}" alt="{{ item.title }} (back)" loading="lazy" width="500" height="500">
+      <div class="shop-photo shop-back" style="--photo:url('/static/shop/{{ item.back_file }}')">
+        <img src="{{ root }}static/shop/{{ item.back_file }}" alt="{{ item.title }} (back)" loading="lazy" width="500" height="500">
+      </div>
       {% endif %}
     </div>
     {% set ns.idx = ns.idx + 1 %}
