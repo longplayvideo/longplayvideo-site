@@ -17,9 +17,9 @@
           <p>{{ ep.summary }}</p>
           <div class="card-links">
             <span class="ep-listen-icons">
-              {% if ep.link %}<a href="{{ ep.link }}" target="_blank" rel="noopener" aria-label="Listen on Spotify"><img src="{{ root }}static/icon-spotify.png" alt="Spotify"></a>{% endif %}
-              {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener" aria-label="Listen on Apple Podcasts"><img src="{{ root }}static/icon-apple-podcasts.png" alt="Apple Podcasts"></a>{% endif %}
-              {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Listen on Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt="Amazon Music"></a>{% endif %}
+              {% if ep.link %}<a href="{{ ep.link }}" target="_blank" rel="noopener" aria-label="Listen on Spotify"><img src="{{ root }}static/icon-spotify.png" alt="Spotify" width="128" height="128"></a>{% endif %}
+              {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener" aria-label="Listen on Apple Podcasts"><img src="{{ root }}static/icon-apple-podcasts.png" alt="Apple Podcasts" width="128" height="128"></a>{% endif %}
+              {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Listen on Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt="Amazon Music" width="128" height="128"></a>{% endif %}
             </span>
             {% if ep.imdb_link %}<a class="imdb-link" href="{{ ep.imdb_link }}" target="_blank" rel="noopener">IMDb</a>{% endif %}
             {% if ep.toptrumps_slug %}<a class="toptrumps-link" href="{{ root }}toptrumps.html#{{ ep.toptrumps_slug }}">LPV Card</a>{% endif %}

@@ -18,7 +18,7 @@
 <body>
 <header class="site-header">
   <a class="brand" href="{{ root }}index.html">
-    <img src="{{ root }}static/header-logo.jpg" alt="{{ config.site_title }} logo">
+    <img src="{{ root }}static/header-logo.jpg" alt="{{ config.site_title }} logo" width="1024" height="1024">
     {{ config.site_title }}
   </a>
   <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false">&#9776;</button>
@@ -55,16 +55,16 @@
 <footer class="site-footer">
   <div>&copy; {{ year }} {{ config.site_title }}.</div>
   <div class="social-links">
-    <a href="{{ config.spotify_url }}" target="_blank" rel="noopener" aria-label="Spotify"><img src="{{ root }}static/icon-spotify.png" alt=""><span class="social-label">Spotify</span></a>
-    <a href="{{ config.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram"><img src="{{ root }}static/icon-instagram.png" alt=""><span class="social-label">Instagram</span></a>
-    {% if config.youtube_url and "PASTE_" not in config.youtube_url %}<a href="{{ config.youtube_url }}" target="_blank" rel="noopener" aria-label="YouTube"><img src="{{ root }}static/icon-youtube.png" alt=""><span class="social-label">YouTube</span></a>{% endif %}
-    {% if config.tiktok_url and "PASTE_" not in config.tiktok_url %}<a href="{{ config.tiktok_url }}" target="_blank" rel="noopener" aria-label="TikTok"><img src="{{ root }}static/icon-tiktok.png" alt=""><span class="social-label">TikTok</span></a>{% endif %}
-    {% if config.facebook_url and "PASTE_" not in config.facebook_url %}<a href="{{ config.facebook_url }}" target="_blank" rel="noopener" aria-label="Facebook"><img src="{{ root }}static/icon-facebook.png" alt=""><span class="social-label">Facebook</span></a>{% endif %}
-    {% if config.letterboxd_url and "PASTE_" not in config.letterboxd_url %}<a href="{{ config.letterboxd_url }}" target="_blank" rel="noopener" aria-label="Letterboxd"><img src="{{ root }}static/icon-letterboxd.png" alt=""><span class="social-label">Letterboxd</span></a>{% endif %}
-    {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener" aria-label="Apple Podcasts"><img src="{{ root }}static/icon-apple-podcasts.png" alt=""><span class="social-label">Apple Podcasts</span></a>{% endif %}
-    {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt=""><span class="social-label">Amazon Music</span></a>{% endif %}
-    {% if config.rss_url and "PASTE_" not in config.rss_url %}<a href="{{ config.rss_url }}" target="_blank" rel="noopener" aria-label="RSS"><img src="{{ root }}static/icon-rss.png" alt=""><span class="social-label">RSS</span></a>{% endif %}
-    {% if config.outout_url and "PASTE_" not in config.outout_url %}<a href="{{ config.outout_url }}" target="_blank" rel="noopener" aria-label="OutOut"><img class="partner-footer-logo" src="{{ root }}static/outout-logo.jpg" alt=""></a>{% endif %}
+    <a href="{{ config.spotify_url }}" target="_blank" rel="noopener" aria-label="Spotify"><img src="{{ root }}static/icon-spotify.png" alt="Spotify" width="128" height="128"><span class="social-label">Spotify</span></a>
+    <a href="{{ config.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram"><img src="{{ root }}static/icon-instagram.png" alt="Instagram" width="128" height="128"><span class="social-label">Instagram</span></a>
+    {% if config.youtube_url and "PASTE_" not in config.youtube_url %}<a href="{{ config.youtube_url }}" target="_blank" rel="noopener" aria-label="YouTube"><img src="{{ root }}static/icon-youtube.png" alt="YouTube" width="128" height="128"><span class="social-label">YouTube</span></a>{% endif %}
+    {% if config.tiktok_url and "PASTE_" not in config.tiktok_url %}<a href="{{ config.tiktok_url }}" target="_blank" rel="noopener" aria-label="TikTok"><img src="{{ root }}static/icon-tiktok.png" alt="TikTok" width="128" height="128"><span class="social-label">TikTok</span></a>{% endif %}
+    {% if config.facebook_url and "PASTE_" not in config.facebook_url %}<a href="{{ config.facebook_url }}" target="_blank" rel="noopener" aria-label="Facebook"><img src="{{ root }}static/icon-facebook.png" alt="Facebook" width="128" height="128"><span class="social-label">Facebook</span></a>{% endif %}
+    {% if config.letterboxd_url and "PASTE_" not in config.letterboxd_url %}<a href="{{ config.letterboxd_url }}" target="_blank" rel="noopener" aria-label="Letterboxd"><img src="{{ root }}static/icon-letterboxd.png" alt="Letterboxd" width="128" height="128"><span class="social-label">Letterboxd</span></a>{% endif %}
+    {% if config.apple_podcasts_url and "PASTE_" not in config.apple_podcasts_url %}<a href="{{ config.apple_podcasts_url }}" target="_blank" rel="noopener" aria-label="Apple Podcasts"><img src="{{ root }}static/icon-apple-podcasts.png" alt="Apple Podcasts" width="128" height="128"><span class="social-label">Apple Podcasts</span></a>{% endif %}
+    {% if config.amazon_music_url and "PASTE_" not in config.amazon_music_url %}<a href="{{ config.amazon_music_url }}" target="_blank" rel="noopener" aria-label="Amazon Music"><img src="{{ root }}static/icon-amazon-music.png" alt="Amazon Music" width="128" height="128"><span class="social-label">Amazon Music</span></a>{% endif %}
+    {% if config.rss_url and "PASTE_" not in config.rss_url %}<a href="{{ config.rss_url }}" target="_blank" rel="noopener" aria-label="RSS"><img src="{{ root }}static/icon-rss.png" alt="RSS" width="512" height="512"><span class="social-label">RSS</span></a>{% endif %}
+    {% if config.outout_url and "PASTE_" not in config.outout_url %}<a href="{{ config.outout_url }}" target="_blank" rel="noopener" aria-label="OutOut"><img class="partner-footer-logo" src="{{ root }}static/outout-logo.jpg" alt="OutOut" width="600" height="141"></a>{% endif %}
   </div>
 </footer>
 </body>

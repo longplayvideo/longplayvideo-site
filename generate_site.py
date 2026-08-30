@@ -1501,6 +1501,28 @@ def load_start_here_picks(episodes):
     return groups
 
 
+def minify_css_in_place(path):
+    """Strips comments and collapses whitespace in the built copy of
+    style.css - a ~5KB Lighthouse "minify CSS" saving. Only touches the
+    _site output, never the source file in static/, so the heavily-
+    commented source (which documents real bugs and decisions - see the
+    file itself) stays fully readable for editing. Deliberately a plain
+    regex pass rather than a new dependency - this file has no content:
+    strings or other constructs a naive whitespace/comment strip could
+    corrupt, so it doesn't need a real CSS parser.
+    """
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        css = f.read()
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    css = re.sub(r"\s+", " ", css)
+    css = re.sub(r"\s*([{}:;,])\s*", r"\1", css)
+    css = re.sub(r";}", "}", css)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(css.strip())
+
+
 def build():
     config = load_config()
     drinks_snacks = load_drinks_snacks(config.get("drinks_sheet_url", ""))
@@ -1578,6 +1600,7 @@ def build():
     os.makedirs(OUT)
 
     shutil.copytree(os.path.join(ROOT, "static"), os.path.join(OUT, "static"))
+    minify_css_in_place(os.path.join(OUT, "static", "style.css"))
 
     env = Environment(loader=FileSystemLoader(os.path.join(ROOT, "templates")))
     common = {

@@ -24,7 +24,7 @@
     <canvas id="critics-audience-chart" height="240"></canvas>
   </div>
   {% else %}
-  <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart">
+  <img class="stats-chart" src="{{ root }}static/stats/critics-vs-audience.png" alt="Critics vs audience scatter chart" width="845" height="780">
   {% endif %}
   {% if critics_vs_audience %}
   <div class="chart-card">
@@ -94,7 +94,7 @@
     <canvas id="genre-chart" height="240"></canvas>
   </div>
   {% else %}
-  <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart">
+  <img class="stats-chart" src="{{ root }}static/stats/genre-breakdown.png" alt="Genre breakdown chart" width="910" height="650">
   {% endif %}
 </main>
 
@@ -288,7 +288,7 @@
         var point = tooltip.dataPoints[0].raw;
         var file = point.toptrumps_slug && slugToFile[point.toptrumps_slug];
         var html = "";
-        if (file) html += '<img src="{{ root }}static/toptrumps/' + file + '" alt="' + point.film + ' LPV Card">';
+        if (file) html += '<img src="{{ root }}static/toptrumps/' + file + '" alt="' + point.film + ' LPV Card" width="700" height="1050">';
         html += '<div class="tt-tooltip-body"><strong>' + point.film + '</strong>' +
                 '<span>Critics: ' + point.x + '%</span>' +
                 '<span>Audience: ' + point.y + '%</span></div>';
