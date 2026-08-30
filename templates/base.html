@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+{% if config.ga4_measurement_id and "PASTE_" not in config.ga4_measurement_id %}
+<!-- Google tag (gtag.js) - placed as early in <head> as possible, per Google's
+     own setup instructions, so it can't miss part of the page load it's timing. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ config.ga4_measurement_id }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '{{ config.ga4_measurement_id }}');
+</script>
+{% endif %}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}{{ config.site_title }}{% endblock %}</title>
