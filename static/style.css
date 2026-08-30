@@ -1014,8 +1014,14 @@ select.episode-search { max-width: 220px; cursor: pointer; }
    off to fill the tall box. contain never crops, at the cost of some
    products getting letterboxed rather than filling the frame edge to
    edge - the safer default now that product photos come in a mix of
-   shapes, not just tall ones. */
-.showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: contain; background: rgba(232,180,82,0.08); }
+   shapes, not just tall ones. Frame ratio is 1:1, not the 2:3 used for
+   LPV Cards elsewhere on the site - that ratio was inherited from the
+   card styling, not chosen for this content, and almost every actual
+   shop photo measured out close to square. 1:1 fills edge to edge for
+   nearly everything; only a genuinely landscape shot (e.g. the water
+   bottles) gets a small letterbox strip now, instead of every photo
+   being mismatched against a tall frame it was never shaped for. */
+.showcase-card img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain; background: rgba(232,180,82,0.08); }
 /* Products with a "-back" image (see load_shop_items) crossfade to it on
    hover/tap - e.g. showing a tee's back print, or the other side of a
    stubby holder. Products with just one image are unaffected. */
