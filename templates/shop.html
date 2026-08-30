@@ -30,7 +30,14 @@
       </div>
       {% if item.back_file %}
       <div class="shop-photo shop-back" style="--photo:url('/static/shop/{{ item.back_file }}')">
-        <img src="{{ root }}static/shop/{{ item.back_file }}" alt="{{ item.title }} (back)" loading="lazy" width="500" height="500">
+        {# Not lazy - it sits at opacity:0 until hover, but the browser
+           still has to fetch/decode it first. Lazy-loading meant that
+           on a first hover the blurred CSS backdrop (which paints as
+           soon as its bytes arrive) could appear before the sharp <img>
+           had finished decoding, so the two visibly popped in out of
+           sync instead of crossfading in together. Loading it eagerly
+           removes that race - it's ready before anyone ever hovers. #}
+        <img src="{{ root }}static/shop/{{ item.back_file }}" alt="{{ item.title }} (back)" loading="eager" width="500" height="500">
       </div>
       {% endif %}
     </div>
