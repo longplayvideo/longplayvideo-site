@@ -956,6 +956,18 @@ def _to_int(val):
     return int(f) if f is not None else None
 
 
+# A cell showing one of these means a formula broke (e.g. a VLOOKUP/INDEX
+# whose reference got deleted) - it's not a real value, just Sheets'
+# literal error text. _to_int already rejects these fine for a numeric
+# field (not a number), but a text field like a film title would happily
+# accept "#REF!" as if it were a real title - see is_sheet_error_value().
+SHEET_ERROR_VALUES = {"#REF!", "#N/A", "#VALUE!", "#DIV/0!", "#NAME?", "#NULL!", "#NUM!"}
+
+
+def is_sheet_error_value(text):
+    return text.strip().upper() in SHEET_ERROR_VALUES
+
+
 def _film_stats_entry(genre, rt_audience, rt_critics, imdb_rating, year, guest=None,
                        sub_genre=None, runtime=None, explosions=None, deaths=None,
                        animated_chars=None, budget_adj=None, dom_rev_adj=None, intl_rev_adj=None,
@@ -1114,7 +1126,7 @@ def load_toptrumps_stats(sheet_url):
         for row in rows[1:]:  # skip the header row
             get = lambda key: row[col[key]] if col[key] < len(row) else ""
             title = get("title").strip()
-            if not title:
+            if not title or is_sheet_error_value(title):
                 continue
             first_watch = _to_int(get("first_watch"))
             rewatch = _to_int(get("rewatch"))
